@@ -1,0 +1,3527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aurenza Academy Private Limited — Business & GST Invoice Portal</title>
+  <meta name="description" content="Aurenza Academy business operations and GST invoice portal." />
+  <meta name="theme-color" content="#660665" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Optional Vercel / Cloud Environment Hook -->
+  <script>
+    window.__AURENZA_VERCEL_CONFIG__ = window.__AURENZA_VERCEL_CONFIG__ || {
+      projectName: 'aurenza-academy-erp',
+      environment: 'production',
+      syncMode: 'local+webhook',
+      webhookUrl: '',
+      apiKey: '',
+      version: '4.0.0-vercel-ready'
+    };
+  </script>
+
+  <style>
+    :root {
+      --bg-canvas: #F9F9FB;
+      --bg-card: #FFFFFF;
+      --brand-plum: #660665;
+      --brand-magenta: #F439B7;
+      --text-slate: #1E2538;
+      --text-muted: #5A6275;
+      --border-hairline: #E5E7EB;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-slate);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* A4 Print & PDF Output Rules */
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+      #a4-invoice-sheet,
+      #a4-invoice-sheet * {
+        visibility: visible !important;
+      }
+      #a4-invoice-sheet {
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 14mm !important;
+        background: #FFFFFF !important;
+        box-shadow: none !important;
+        border: none !important;
+        overflow: visible !important;
+        max-height: none !important;
+        z-index: 99999 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-[#F9F9FB] text-[#1E2538] min-h-screen">
+  <div id="app"></div>
+
+  <script>
+    // ========================================================================
+    // 1. PERSISTENCE, SEED STATE & AUDIT LOGGING
+    // ========================================================================
+    const STORAGE_KEYS = {
+      STATE: 'aurenza_vercel_erp_state_v4',
+      SESSION: 'aurenza_vercel_erp_session_v4'
+    };
+
+    function getSeedState() {
+      const nowIso = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      return {
+        branding: {
+          mode: 'vector', // 'vector' | 'image' | 'text'
+          customImageUrl: '',
+          customTextTitle: 'AURENZA',
+          customSubtitlePrefix: 'ACADEMY',
+          customSubtitleSuffix: 'PRIVATE LIMITED',
+          primaryColor: '#660665',
+          accentColor: '#F439B7',
+          subtitleColor: '#1E2538',
+          logoBgColor: '#F9F9FB',
+          scale: 100, // 75 to 125 (%)
+          showSubtitle: true,
+          showFlankingLines: true
+        },
+        customColumns: {
+          invoiceItems: [
+            { id: 'col-batch', label: 'Batch / Cohort', type: 'text', showInPrint: true }
+          ],
+          customers: [
+            { id: 'col-state', label: 'State Code', type: 'text' }
+          ],
+          vendors: [
+            { id: 'col-terms', label: 'Payment Terms', type: 'text' }
+          ]
+        },
+        showHsnCol: true,
+        showDiscountCol: true,
+        company: {
+          name: 'AURENZA ACADEMY PRIVATE LIMITED',
+          gstin: '37AABCA9284L1Z6',
+          pan: 'AABCA9284L',
+          cin: 'U80904AP2023PTC112490',
+          phone: '+91 891 274 8890',
+          email: 'accounts@aurenzaacademy.in',
+          website: 'https://aurenzaacademy.in',
+          address: 'Level 4, Aurenza Tech & Learning Towers, Siripuram, Visakhapatnam, Andhra Pradesh 530003',
+          bankName: 'HDFC Bank Ltd',
+          accountNo: '50200084920144',
+          ifsc: 'HDFC0001042',
+          upiId: 'aurenzaacademy@hdfcbank',
+          invoicePrefix: 'AUR-2026-',
+          adminCodeHint: 'ADMIN2026',
+          employeeCodeHint: 'STAFF2026',
+          vercelProjectName: window.__AURENZA_VERCEL_CONFIG__?.projectName || 'aurenza-academy-erp',
+          vercelCustomDomain: 'billing.aurenzaacademy.in',
+          syncWebhookUrl: window.__AURENZA_VERCEL_CONFIG__?.webhookUrl || '',
+          lastSyncAt: nowIso
+        },
+        customers: [
+          {
+            id: 'cust-1',
+            contactName: 'Dr. Rameshwar Rao',
+            companyName: 'Visakha Institute of Technology',
+            whatsapp: '919848012345',
+            email: 'procurement@vitvizag.edu.in',
+            gstin: '37AABCV4512K1Z5',
+            taxMode: 'INTRA',
+            address: 'Plot 14, Rushikonda IT Park, Visakhapatnam, Andhra Pradesh 530045',
+            customFields: { 'col-state': '37 (AP)' }
+          },
+          {
+            id: 'cust-2',
+            contactName: 'Ananya Deshmukh',
+            companyName: 'NexGen EdTech Solutions Pvt Ltd',
+            whatsapp: '919820456789',
+            email: 'accounts@nexgenedtech.in',
+            gstin: '27AADCN8821M1Z2',
+            taxMode: 'INTER',
+            address: 'Tower B, Bandra Kurla Complex, Mumbai, Maharashtra 400051',
+            customFields: { 'col-state': '27 (MH)' }
+          },
+          {
+            id: 'cust-3',
+            contactName: 'Karthik Subramanian',
+            companyName: 'Apex Corporate Training Hub',
+            whatsapp: '919440198765',
+            email: 'finance@apextraining.co.in',
+            gstin: '37AAECA9102P1Z8',
+            taxMode: 'INTRA',
+            address: '3rd Floor, MVP Colony Main Road, Visakhapatnam, Andhra Pradesh 530017',
+            customFields: { 'col-state': '37 (AP)' }
+          }
+        ],
+        vendors: [
+          {
+            id: 'vend-1',
+            companyName: 'CloudHost India Infrastructure',
+            contactName: 'Suresh Kumar',
+            category: 'Cloud & LMS Hosting',
+            phone: '919876543210',
+            email: 'billing@cloudhostindia.com',
+            gstin: '29AABCC1122D1Z9',
+            address: 'Koramangala 4th Block, Bengaluru, Karnataka 560034',
+            customFields: { 'col-terms': 'Net 15 Days' }
+          },
+          {
+            id: 'vend-2',
+            companyName: 'PrintCraft Digital & Publications',
+            contactName: 'Meenakshi Sundaram',
+            category: 'Study Material Printing',
+            phone: '919123456780',
+            email: 'orders@printcraftvizag.in',
+            gstin: '37AAECP5544R1Z1',
+            address: 'Dwaraka Nagar, Visakhapatnam, Andhra Pradesh 530016',
+            customFields: { 'col-terms': 'Advance 50%' }
+          }
+        ],
+        expenses: [
+          {
+            id: 'exp-1',
+            vendor: 'CloudHost India Infrastructure',
+            category: 'Software & LMS Servers',
+            date: '2026-11-05',
+            amount: 24500,
+            gstInput: 4410,
+            status: 'Paid',
+            notes: 'Monthly dedicated cloud server & video streaming bandwidth'
+          },
+          {
+            id: 'exp-2',
+            vendor: 'PrintCraft Digital & Publications',
+            category: 'Course Workbooks & Kits',
+            date: '2026-11-12',
+            amount: 18000,
+            gstInput: 2160,
+            status: 'Paid',
+            notes: '500 Printed Full-Stack & AI Certification Manuals'
+          },
+          {
+            id: 'exp-3',
+            vendor: 'Aurenza Faculty Guest Honorarium',
+            category: 'Trainer & Faculty Payouts',
+            date: '2026-11-18',
+            amount: 42000,
+            gstInput: 0,
+            status: 'Pending',
+            notes: 'Corporate AI Bootcamp Lead Instructor Fees'
+          }
+        ],
+        invoices: [
+          {
+            id: 'inv-1',
+            invoiceNumber: 'AUR-2026-001',
+            date: '2026-11-04',
+            dueDate: '2026-11-19',
+            customerName: 'Dr. Rameshwar Rao',
+            customerCompany: 'Visakha Institute of Technology',
+            customerPhone: '919848012345',
+            customerEmail: 'procurement@vitvizag.edu.in',
+            customerGstin: '37AABCV4512K1Z5',
+            customerAddress: 'Plot 14, Rushikonda IT Park, Visakhapatnam, Andhra Pradesh 530045',
+            taxMode: 'INTRA',
+            gstRate: 18,
+            status: 'Paid',
+            paymentMode: 'Bank Transfer (NEFT)',
+            items: [
+              {
+                description: 'Enterprise AI & Data Science Campus Workshop (120 Students)',
+                hsn: '999293',
+                qty: 1,
+                rate: 125000,
+                discount: 5,
+                customFields: { 'col-batch': 'AI-NOV-26' }
+              },
+              {
+                description: 'Aurenza LMS Annual Student Portal Licenses',
+                hsn: '998434',
+                qty: 120,
+                rate: 450,
+                discount: 0,
+                customFields: { 'col-batch': 'LMS-2026' }
+              }
+            ],
+            notes: 'Thank you for partnering with Aurenza Academy Private Limited.',
+            createdBy: 'Admin (Aurenza MD)'
+          },
+          {
+            id: 'inv-2',
+            invoiceNumber: 'AUR-2026-002',
+            date: '2026-11-14',
+            dueDate: '2026-11-29',
+            customerName: 'Ananya Deshmukh',
+            customerCompany: 'NexGen EdTech Solutions Pvt Ltd',
+            customerPhone: '919820456789',
+            customerEmail: 'accounts@nexgenedtech.in',
+            customerGstin: '27AADCN8821M1Z2',
+            customerAddress: 'Tower B, Bandra Kurla Complex, Mumbai, Maharashtra 400051',
+            taxMode: 'INTER',
+            gstRate: 18,
+            status: 'Partial',
+            paymentMode: 'UPI Business',
+            items: [
+              {
+                description: 'Custom Corporate Leadership & Cloud Architecture Curriculum',
+                hsn: '999293',
+                qty: 2,
+                rate: 68000,
+                discount: 0,
+                customFields: { 'col-batch': 'CLD-Q4' }
+              }
+            ],
+            notes: '50% advance received via UPI. Balance due upon final module delivery.',
+            createdBy: 'Billing Executive'
+          },
+          {
+            id: 'inv-3',
+            invoiceNumber: 'AUR-2026-003',
+            date: '2026-11-21',
+            dueDate: '2026-12-06',
+            customerName: 'Karthik Subramanian',
+            customerCompany: 'Apex Corporate Training Hub',
+            customerPhone: '919440198765',
+            customerEmail: 'finance@apextraining.co.in',
+            customerGstin: '37AAECA9102P1Z8',
+            customerAddress: '3rd Floor, MVP Colony Main Road, Visakhapatnam, Andhra Pradesh 530017',
+            taxMode: 'INTRA',
+            gstRate: 18,
+            status: 'Overdue',
+            paymentMode: 'Pending',
+            items: [
+              {
+                description: 'Executive FinTech & Digital Transformation Certification Cohort',
+                hsn: '999293',
+                qty: 35,
+                rate: 2800,
+                discount: 10,
+                customFields: { 'col-batch': 'FIN-EXEC-09' }
+              }
+            ],
+            notes: 'Please quote Invoice Number AUR-2026-003 during NEFT/RTGS remittance.',
+            createdBy: 'Billing Executive'
+          }
+        ],
+        auditLogs: [
+          {
+            id: 'aud-1',
+            timestamp: nowIso,
+            actor: 'System Seed',
+            role: 'system',
+            action: 'INITIALIZE_WORKSPACE',
+            details: 'Initialized Aurenza Academy Private Limited workspace state.'
+          }
+        ]
+      };
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.STATE);
+        const seed = getSeedState();
+        if (!raw) {
+          localStorage.setItem(STORAGE_KEYS.STATE, JSON.stringify(seed));
+          return seed;
+        }
+        const parsed = JSON.parse(raw);
+        return {
+          ...seed,
+          ...parsed,
+          branding: { ...seed.branding, ...(parsed.branding || {}) },
+          customColumns: {
+            invoiceItems: Array.isArray(parsed.customColumns?.invoiceItems)
+              ? parsed.customColumns.invoiceItems
+              : seed.customColumns.invoiceItems,
+            customers: Array.isArray(parsed.customColumns?.customers)
+              ? parsed.customColumns.customers
+              : seed.customColumns.customers,
+            vendors: Array.isArray(parsed.customColumns?.vendors)
+              ? parsed.customColumns.vendors
+              : seed.customColumns.vendors
+          },
+          company: { ...seed.company, ...(parsed.company || {}) },
+          invoices: Array.isArray(parsed.invoices) ? parsed.invoices : seed.invoices,
+          customers: Array.isArray(parsed.customers) ? parsed.customers : seed.customers,
+          vendors: Array.isArray(parsed.vendors) ? parsed.vendors : seed.vendors,
+          expenses: Array.isArray(parsed.expenses) ? parsed.expenses : seed.expenses,
+          auditLogs: Array.isArray(parsed.auditLogs) ? parsed.auditLogs : seed.auditLogs
+        };
+      } catch (err) {
+        console.error('State load error:', err);
+        return getSeedState();
+      }
+    }
+
+    function saveStateOnly(stateObj) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.STATE, JSON.stringify(stateObj));
+      } catch (err) {
+        console.error('State save error:', err);
+      }
+    }
+
+    function loadSession() {
+      try {
+        const raw = sessionStorage.getItem(STORAGE_KEYS.SESSION);
+        return raw ? JSON.parse(raw) : null;
+      } catch (err) {
+        return null;
+      }
+    }
+
+    function saveSession(sessObj) {
+      try {
+        if (!sessObj) {
+          sessionStorage.removeItem(STORAGE_KEYS.SESSION);
+        } else {
+          sessionStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify(sessObj));
+        }
+      } catch (err) {
+        console.error('Session save error:', err);
+      }
+    }
+
+    function pushAuditLog(action, details) {
+      const nowIso = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const entry = {
+        id: 'aud-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+        timestamp: nowIso,
+        actor: session?.name || 'Guest',
+        role: session?.role || 'none',
+        action,
+        details
+      };
+      appState.auditLogs = [entry, ...(appState.auditLogs || [])].slice(0, 200);
+    }
+
+    async function dispatchWebhookSync(action, details) {
+      const url = (appState.company?.syncWebhookUrl || '').trim();
+      if (!url || !/^https?:\/\//i.test(url)) return;
+      try {
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company: appState.company?.name,
+            action,
+            details,
+            syncedAt: new Date().toISOString(),
+            snapshot: {
+              invoicesCount: appState.invoices.length,
+              customersCount: appState.customers.length,
+              vendorsCount: appState.vendors.length,
+              expensesCount: appState.expenses.length
+            }
+          })
+        });
+        appState.company.lastSyncAt = new Date().toISOString().replace('T', ' ').slice(0, 19);
+        saveStateOnly(appState);
+      } catch (err) {
+        console.warn('Webhook sync skipped/failed:', err);
+      }
+    }
+
+    function commitState(action, details) {
+      pushAuditLog(action, details);
+      saveStateOnly(appState);
+      dispatchWebhookSync(action, details);
+    }
+
+    // ========================================================================
+    // 2. EXACT CUSTOM SVG BRAND LOGO & LOGO EDITOR RENDERER
+    // ========================================================================
+    function escapeHtml(val) {
+      return String(val ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderAurenzaLogoSVG(widthClass = 'w-64', compact = false) {
+      const b = appState.branding || getSeedState().branding;
+      const plum = b.primaryColor || '#660665';
+      const magenta = b.accentColor || '#F439B7';
+      const subCol = b.subtitleColor || '#1E2538';
+      const bgCol = b.logoBgColor || '#F9F9FB';
+      const scaleFactor = (Number(b.scale) || 100) / 100;
+      const wrapperStyle = `background-color:${escapeHtml(bgCol)}; transform:scale(${scaleFactor.toFixed(2)}); transform-origin:center;`;
+
+      if (b.mode === 'image' && b.customImageUrl) {
+        return `
+          <div class="inline-flex items-center justify-center rounded-xl px-3 py-2 transition-transform" style="${wrapperStyle}">
+            <img
+              src="${escapeHtml(b.customImageUrl)}"
+              alt="${escapeHtml(appState.company?.name || 'AURENZA ACADEMY PRIVATE LIMITED')}"
+              class="${widthClass} h-auto max-h-24 object-contain select-none"
+            />
+          </div>
+        `;
+      }
+
+      if (b.mode === 'text') {
+        const titleTxt = escapeHtml(b.customTextTitle || 'AURENZA');
+        const subLeft = escapeHtml(b.customSubtitlePrefix || 'ACADEMY');
+        const subRight = escapeHtml(b.customSubtitleSuffix || 'PRIVATE LIMITED');
+        return `
+          <div class="inline-flex flex-col items-center justify-center rounded-xl px-4 py-2.5 transition-transform" style="${wrapperStyle}">
+            <div class="text-2xl sm:text-3xl font-black tracking-tight leading-none" style="color:${escapeHtml(plum)};">
+              ${titleTxt}
+            </div>
+            ${
+              !compact && b.showSubtitle !== false
+                ? `
+              <div class="flex items-center gap-2 mt-1.5">
+                ${b.showFlankingLines !== false ? `<span class="h-[3px] w-6 rounded-full" style="background:${escapeHtml(magenta)};"></span>` : ''}
+                <span class="text-[10px] sm:text-xs font-extrabold uppercase tracking-[0.22em]" style="color:${escapeHtml(magenta)};">${subLeft}</span>
+                <span class="text-[10px] sm:text-xs font-extrabold uppercase tracking-[0.22em]" style="color:${escapeHtml(subCol)};">${subRight}</span>
+                ${b.showFlankingLines !== false ? `<span class="h-[3px] w-6 rounded-full" style="background:${escapeHtml(magenta)};"></span>` : ''}
+              </div>
+            `
+                : ''
+            }
+          </div>
+        `;
+      }
+
+      // Default: Exact Vector Wordmark Matching AURENZA ACADEMY PRIVATE LIMITED
+      return `
+        <div class="inline-flex items-center justify-center rounded-xl px-2.5 py-1.5 transition-transform" style="${wrapperStyle}">
+          <svg
+            viewBox="0 0 840 218"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            class="${widthClass} h-auto select-none"
+            role="img"
+            aria-label="${escapeHtml(appState.company?.name || 'AURENZA ACADEMY PRIVATE LIMITED')}"
+          >
+            <!-- A -->
+            <path d="M12 146L58 20H108L154 146H113L103 118H63L53 146H12ZM71 89H95L83 51L71 89Z" fill="${escapeHtml(plum)}" />
+            <!-- U -->
+            <path d="M164 20H204V94C204 109 213 117 226 117C239 117 248 109 248 94V20H288V96C288 131 262 149 226 149C190 149 164 131 164 96V20Z" fill="${escapeHtml(plum)}" />
+            <!-- R -->
+            <path d="M302 20H366C395 20 412 35 412 60C412 78 401 91 384 97L415 146H369L344 105H341V146H302V20ZM341 50V76H362C371 76 376 71 376 63C376 55 371 50 362 50H341Z" fill="${escapeHtml(plum)}" />
+            <!-- Split E (Plum + Magenta) + Upward-Right White Arrow -->
+            <g>
+              <path d="M424 20H522V50H424V20Z" fill="${escapeHtml(plum)}" />
+              <path d="M424 50H464V70H424V50Z" fill="${escapeHtml(plum)}" />
+              <path d="M424 70H514V98H464V116H524V146H424V70Z" fill="${escapeHtml(magenta)}" />
+              <path d="M412 138L466 61L452 51L496 36L492 81L478 71L421 146L412 138Z" fill="#FFFFFF" />
+            </g>
+            <!-- N -->
+            <path d="M536 20H574L616 86V20H655V146H618L575 78V146H536V20Z" fill="${escapeHtml(plum)}" />
+            <!-- Z -->
+            <path d="M669 20H772V49L718 116H773V146H666V117L720 50H669V20Z" fill="${escapeHtml(plum)}" />
+            <!-- A -->
+            <path d="M776 146L806 20H828L835 146H808L805 118H792L788 146H776ZM796 92H805L801 55L796 92Z" fill="${escapeHtml(plum)}" />
+            ${
+              !compact && b.showSubtitle !== false
+                ? `
+            <g>
+              ${b.showFlankingLines !== false ? `<rect x="12" y="180" width="92" height="4.5" rx="2.2" fill="${escapeHtml(magenta)}" />` : ''}
+              <text x="118" y="191" fill="${escapeHtml(magenta)}" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" font-size="25" letter-spacing="5.2">${escapeHtml(b.customSubtitlePrefix || 'ACADEMY')}</text>
+              <text x="340" y="191" fill="${escapeHtml(subCol)}" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" font-size="25" letter-spacing="5.2">${escapeHtml(b.customSubtitleSuffix || 'PRIVATE LIMITED')}</text>
+              ${b.showFlankingLines !== false ? `<rect x="736" y="180" width="92" height="4.5" rx="2.2" fill="${escapeHtml(magenta)}" />` : ''}
+            </g>
+            `
+                : ''
+            }
+          </svg>
+        </div>
+      `;
+    }
+
+    // ========================================================================
+    // 3. APPLICATION UI STATE & MATH HELPERS
+    // ========================================================================
+    let appState = loadState();
+    let session = loadSession();
+
+    const ui = {
+      activeTab: 'dashboard',
+      mobileMenuOpen: false,
+      authRoleTab: 'admin',
+      authError: '',
+      toast: null,
+      invoiceSearch: '',
+      invoiceStatusFilter: 'ALL',
+      customerSearch: '',
+      vendorSearch: '',
+      auditSearch: '',
+      // Modals
+      invoiceModalOpen: false,
+      editingInvoiceId: null,
+      draftInvoice: null,
+      previewInvoiceId: null,
+      customerModalOpen: false,
+      editingCustomerId: null,
+      vendorModalOpen: false,
+      editingVendorId: null,
+      expenseModalOpen: false,
+      editingExpenseId: null,
+      logoEditorModalOpen: false,
+      deployGuideModalOpen: false,
+      // Edit custom column state
+      editingColScope: null,
+      editingColId: null
+    };
+
+    function showToast(message, type = 'success') {
+      ui.toast = { message, type };
+      renderToastOnly();
+      clearTimeout(window.__aurenzaToastTimer);
+      window.__aurenzaToastTimer = setTimeout(() => {
+        ui.toast = null;
+        renderToastOnly();
+      }, 3200);
+    }
+
+    function renderToastOnly() {
+      const el = document.getElementById('toast-container');
+      if (!el) return;
+      if (!ui.toast) {
+        el.innerHTML = '';
+        return;
+      }
+      const isErr = ui.toast.type === 'error';
+      el.innerHTML = `
+        <div class="fixed bottom-5 right-5 z-[70] px-4 py-3 rounded-xl shadow-lg border text-xs sm:text-sm font-semibold flex items-center gap-2 no-print ${
+          isErr
+            ? 'bg-red-600 text-white border-red-700'
+            : 'bg-[#1E2538] text-white border-[#F439B7]'
+        }">
+          <span class="w-2.5 h-2.5 rounded-full ${isErr ? 'bg-white' : 'bg-[#F439B7]'}"></span>
+          <span>${escapeHtml(ui.toast.message)}</span>
+        </div>
+      `;
+    }
+
+    function formatINR(val) {
+      const n = Number(val) || 0;
+      return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        maximumFractionDigits: 2
+      }).format(n);
+    }
+
+    function computeInvoiceTotals(items = [], taxMode = 'INTRA', gstRate = 18) {
+      let grossSubtotal = 0;
+      let totalDiscount = 0;
+      (items || []).forEach((it) => {
+        const qty = Number(it.qty) || 0;
+        const rate = Number(it.rate) || 0;
+        const disc = Number(it.discount) || 0;
+        const lineGross = qty * rate;
+        const lineDisc = (lineGross * disc) / 100;
+        grossSubtotal += lineGross;
+        totalDiscount += lineDisc;
+      });
+      const taxableAmount = Math.max(0, grossSubtotal - totalDiscount);
+      const rateNum = Number(gstRate) || 0;
+      const totalGst = (taxableAmount * rateNum) / 100;
+      const cgst = taxMode === 'INTRA' ? totalGst / 2 : 0;
+      const sgst = taxMode === 'INTRA' ? totalGst / 2 : 0;
+      const igst = taxMode === 'INTER' ? totalGst : 0;
+      const grandTotal = taxableAmount + totalGst;
+      return {
+        grossSubtotal,
+        totalDiscount,
+        taxableAmount,
+        cgst,
+        sgst,
+        igst,
+        totalGst,
+        grandTotal
+      };
+    }
+
+    function getNextInvoiceNumber() {
+      const prefix = appState.company?.invoicePrefix || 'AUR-2026-';
+      let maxNum = 0;
+      (appState.invoices || []).forEach((inv) => {
+        if (inv.invoiceNumber && inv.invoiceNumber.startsWith(prefix)) {
+          const parsed = parseInt(inv.invoiceNumber.slice(prefix.length), 10);
+          if (!isNaN(parsed) && parsed > maxNum) {
+            maxNum = parsed;
+          }
+        }
+      });
+      return `${prefix}${String(maxNum + 1).padStart(3, '0')}`;
+    }
+
+    function createBlankDraftInvoice() {
+      const today = new Date().toISOString().split('T')[0];
+      const due = new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0];
+      const customFields = {};
+      (appState.customColumns?.invoiceItems || []).forEach((col) => {
+        customFields[col.id] = '';
+      });
+      return {
+        invoiceNumber: getNextInvoiceNumber(),
+        date: today,
+        dueDate: due,
+        customerName: '',
+        customerCompany: '',
+        customerPhone: '',
+        customerEmail: '',
+        customerGstin: '',
+        customerAddress: '',
+        taxMode: 'INTRA',
+        gstRate: 18,
+        status: 'Pending',
+        paymentMode: 'Bank Transfer (NEFT)',
+        items: [
+          {
+            description: '',
+            hsn: '999293',
+            qty: 1,
+            rate: 0,
+            discount: 0,
+            customFields: { ...customFields }
+          }
+        ],
+        notes: 'Thank you for choosing Aurenza Academy Private Limited.'
+      };
+    }
+
+    function computeMetrics() {
+      let totalBilled = 0;
+      let totalCollected = 0;
+      let totalOutstanding = 0;
+      let paidCount = 0;
+      let partialCount = 0;
+      let pendingCount = 0;
+      let overdueCount = 0;
+
+      (appState.invoices || []).forEach((inv) => {
+        const { grandTotal } = computeInvoiceTotals(inv.items, inv.taxMode, inv.gstRate);
+        totalBilled += grandTotal;
+        if (inv.status === 'Paid') {
+          totalCollected += grandTotal;
+          paidCount += 1;
+        } else if (inv.status === 'Partial') {
+          totalCollected += grandTotal * 0.5;
+          totalOutstanding += grandTotal * 0.5;
+          partialCount += 1;
+        } else if (inv.status === 'Overdue') {
+          totalOutstanding += grandTotal;
+          overdueCount += 1;
+        } else {
+          totalOutstanding += grandTotal;
+          pendingCount += 1;
+        }
+      });
+
+      const totalExpenses = (appState.expenses || []).reduce(
+        (acc, e) => acc + (Number(e.amount) || 0),
+        0
+      );
+      const totalGstInput = (appState.expenses || []).reduce(
+        (acc, e) => acc + (Number(e.gstInput) || 0),
+        0
+      );
+      const netProfit = totalBilled - totalExpenses;
+
+      return {
+        totalBilled,
+        totalCollected,
+        totalOutstanding,
+        totalExpenses,
+        totalGstInput,
+        netProfit,
+        paidCount,
+        partialCount,
+        pendingCount,
+        overdueCount
+      };
+    }
+
+    function buildWhatsAppShareUrl(inv) {
+      const t = computeInvoiceTotals(inv.items, inv.taxMode, inv.gstRate);
+      const cleanPhone = String(inv.customerPhone || '').replace(/\D/g, '');
+      const taxLines =
+        inv.taxMode === 'INTRA'
+          ? `CGST (${Number(inv.gstRate) / 2}%): ${formatINR(t.cgst)}\nSGST (${Number(inv.gstRate) / 2}%): ${formatINR(t.sgst)}`
+          : `IGST (${Number(inv.gstRate)}%): ${formatINR(t.igst)}`;
+
+      const text =
+        `*${appState.company?.name || 'AURENZA ACADEMY PRIVATE LIMITED'}*\n` +
+        `-----------------------------------\n` +
+        `Dear *${inv.customerName || 'Valued Client'}*,\n` +
+        `Please find your GST invoice summary below:\n\n` +
+        `*Invoice No:* ${inv.invoiceNumber}\n` +
+        `*Invoice Date:* ${inv.date}\n` +
+        `*Due Date:* ${inv.dueDate}\n` +
+        `*Taxable Value:* ${formatINR(t.taxableAmount)}\n` +
+        `${taxLines}\n` +
+        `*Grand Total:* *${formatINR(t.grandTotal)}*\n` +
+        `*Status:* ${inv.status}\n\n` +
+        `_Attach the downloaded/printed A4 PDF invoice before sending._\n` +
+        `UPI ID: ${appState.company?.upiId || 'aurenzaacademy@hdfcbank'}`;
+
+      const encoded = encodeURIComponent(text);
+      return cleanPhone ? `https://wa.me/${cleanPhone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+    }
+
+    function downloadFile(filename, content, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ========================================================================
+    // 4. LOGIN SCREEN RENDERER
+    // ========================================================================
+    function renderLoginScreen() {
+      const isAdminTab = ui.authRoleTab === 'admin';
+      const hintCode = isAdminTab
+        ? appState.company?.adminCodeHint || 'ADMIN2026'
+        : appState.company?.employeeCodeHint || 'STAFF2026';
+
+      return `
+        <div class="min-h-screen bg-[#F9F9FB] text-[#1E2538] flex flex-col justify-center items-center p-4 sm:p-6">
+          <div id="toast-container"></div>
+          <div class="w-full max-w-lg bg-white border border-[#E5E7EB] rounded-2xl shadow-xl shadow-[#660665]/5 overflow-hidden">
+            <div class="h-2 w-full bg-gradient-to-r from-[#660665] via-[#F439B7] to-[#660665]"></div>
+
+            <div class="p-6 sm:p-9">
+              <div class="flex flex-col items-center text-center mb-6">
+                <div class="rounded-2xl border border-[#E5E7EB] px-5 py-4 mb-3 w-full flex justify-center" style="background:${escapeHtml(appState.branding?.logoBgColor || '#F9F9FB')}">
+                  ${renderAurenzaLogoSVG('w-64 sm:w-72', false)}
+                </div>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-[#F439B7]/12 text-[#660665] border border-[#F439B7]/30">
+                  Vercel Static ERP • GST Billing &amp; Operations
+                </span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 p-1 rounded-xl bg-[#F9F9FB] border border-[#E5E7EB] mb-5">
+                <button
+                  type="button"
+                  id="role-tab-admin"
+                  class="py-2.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                    isAdminTab
+                      ? 'bg-[#660665] text-white shadow-sm'
+                      : 'text-[#5A6275] hover:text-[#1E2538]'
+                  }"
+                >
+                  Admin Login
+                </button>
+                <button
+                  type="button"
+                  id="role-tab-employee"
+                  class="py-2.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                    !isAdminTab
+                      ? 'bg-[#660665] text-white shadow-sm'
+                      : 'text-[#5A6275] hover:text-[#1E2538]'
+                  }"
+                >
+                  Employee Login
+                </button>
+              </div>
+
+              <form id="login-form" class="space-y-4">
+                <div>
+                  <label class="block text-xs font-bold mb-1">Staff Name</label>
+                  <input
+                    id="login-name"
+                    type="text"
+                    required
+                    value="${isAdminTab ? 'Aurenza Managing Director' : 'Billing Operations Executive'}"
+                    class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] focus:bg-white focus:outline-none focus:border-[#660665] text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold mb-1">
+                    ${isAdminTab ? 'Admin Access PIN' : 'Employee Access PIN'}
+                  </label>
+                  <input
+                    id="login-pin"
+                    type="password"
+                    required
+                    value="${escapeHtml(hintCode)}"
+                    placeholder="Enter access PIN"
+                    class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] focus:bg-white focus:outline-none focus:border-[#660665] text-sm font-mono"
+                  />
+                  <p class="text-[11px] text-[#5A6275] mt-1">
+                    Default ${isAdminTab ? 'Admin' : 'Employee'} PIN: <code class="font-mono font-bold text-[#660665]">${escapeHtml(hintCode)}</code> (customizable in Settings)
+                  </p>
+                </div>
+
+                ${
+                  ui.authError
+                    ? `<div class="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">${escapeHtml(ui.authError)}</div>`
+                    : ''
+                }
+
+                <button
+                  type="submit"
+                  class="w-full py-3 rounded-xl bg-[#660665] hover:bg-[#520451] text-white font-extrabold text-sm shadow-md shadow-[#660665]/20 transition-colors cursor-pointer"
+                >
+                  Sign In as ${isAdminTab ? 'Administrator' : 'Employee'}
+                </button>
+              </form>
+
+              <div class="mt-4 pt-4 border-t border-[#E5E7EB] flex items-center justify-between text-xs">
+                <span class="text-[#5A6275]">Ready for static HTML &amp; Vercel hosting</span>
+                <button
+                  type="button"
+                  id="login-open-guide"
+                  class="font-bold text-[#660665] hover:text-[#F439B7] cursor-pointer"
+                >
+                  Vercel Setup &amp; vercel.json →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ========================================================================
+    // 5. MAIN WORKSPACE SHELL & ALL MODULES
+    // ========================================================================
+    function renderSidebar() {
+      const isAdmin = session.role === 'admin';
+      const nav = [
+        { id: 'dashboard', label: 'Dashboard' },
+        { id: 'invoices', label: 'Invoices & GST' },
+        { id: 'customers', label: 'Customers' },
+        { id: 'vendors', label: 'Vendors' },
+        { id: 'expenses', label: 'Expenses' },
+        { id: 'vercel', label: 'Vercel & Cloud Guide' },
+        ...(isAdmin
+          ? [
+              { id: 'settings', label: 'Settings & Columns' },
+              { id: 'audit', label: 'Audit & Backups' }
+            ]
+          : [])
+      ];
+
+      return `
+        <aside class="${
+          ui.mobileMenuOpen ? 'fixed inset-0 z-40 block' : 'hidden'
+        } lg:block lg:w-72 lg:shrink-0 bg-white border-r border-[#E5E7EB] flex flex-col justify-between no-print">
+          <div class="p-5">
+            <div class="rounded-xl border border-[#E5E7EB] p-3 mb-5 flex justify-center" style="background:${escapeHtml(appState.branding?.logoBgColor || '#F9F9FB')}">
+              ${renderAurenzaLogoSVG('w-full max-w-[215px]', false)}
+            </div>
+
+            <div class="mb-5 px-3.5 py-2.5 rounded-xl bg-[#F9F9FB] border border-[#E5E7EB] flex items-center justify-between">
+              <div class="min-w-0">
+                <p class="text-xs font-extrabold text-[#1E2538] truncate">${escapeHtml(session.name)}</p>
+                <p class="text-[11px] text-[#5A6275]">Active Session</p>
+              </div>
+              <span class="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                isAdmin
+                  ? 'bg-[#660665] text-white'
+                  : 'bg-[#F439B7]/15 text-[#660665] border border-[#F439B7]/40'
+              }">
+                ${escapeHtml(session.role)}
+              </span>
+            </div>
+
+            <nav class="space-y-1">
+              ${nav
+                .map((item) => {
+                  const active = ui.activeTab === item.id;
+                  return `
+                    <button
+                      type="button"
+                      data-nav="${item.id}"
+                      class="nav-item-btn w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+                        active
+                          ? 'bg-[#660665] text-white shadow-sm'
+                          : 'text-[#1E2538] hover:bg-[#F9F9FB] hover:text-[#660665]'
+                      }"
+                    >
+                      ${escapeHtml(item.label)}
+                    </button>
+                  `;
+                })
+                .join('')}
+            </nav>
+          </div>
+
+          <div class="p-5 border-t border-[#E5E7EB] space-y-2.5">
+            <button
+              type="button"
+              id="sidebar-new-invoice"
+              class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#660665] to-[#F439B7] text-white font-extrabold text-xs uppercase tracking-wider shadow-sm hover:opacity-95 cursor-pointer"
+            >
+              + New GST Invoice
+            </button>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                id="sidebar-edit-logo"
+                class="py-2 px-2.5 rounded-xl border border-[#660665]/30 bg-[#F9F9FB] hover:border-[#F439B7] text-[#660665] font-bold text-xs cursor-pointer"
+              >
+                Edit Logo
+              </button>
+              <button
+                type="button"
+                id="sidebar-logout"
+                class="py-2 px-2.5 rounded-xl border border-[#E5E7EB] hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-[#5A6275] font-semibold text-xs cursor-pointer"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </aside>
+      `;
+    }
+
+    function renderTopBar() {
+      const titles = {
+        dashboard: 'Executive Dashboard',
+        invoices: 'Invoices & GST Billing',
+        customers: 'Customer Directory',
+        vendors: 'Vendor Database',
+        expenses: 'Expense Tracker',
+        vercel: 'Vercel Static Deployment & Config',
+        settings: 'Company, PINs & Custom Columns',
+        audit: 'Audit Trail & JSON/CSV Backups'
+      };
+
+      return `
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
+          <div>
+            <p class="text-[11px] font-extrabold uppercase tracking-widest text-[#F439B7]">
+              ${escapeHtml(appState.company?.name || 'AURENZA ACADEMY PRIVATE LIMITED')}
+            </p>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-[#660665]">
+              ${escapeHtml(titles[ui.activeTab] || 'Workspace')}
+            </h1>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              id="topbar-edit-logo"
+              class="px-3.5 py-2 rounded-xl bg-white border border-[#660665]/30 hover:border-[#F439B7] text-xs font-bold text-[#660665] cursor-pointer"
+            >
+              Logo &amp; Brand Editor
+            </button>
+            <button
+              type="button"
+              id="topbar-export-json"
+              class="px-3.5 py-2 rounded-xl bg-white border border-[#E5E7EB] hover:border-[#660665] text-xs font-bold text-[#1E2538] cursor-pointer"
+            >
+              Export JSON
+            </button>
+            <button
+              type="button"
+              id="topbar-new-invoice"
+              class="px-4 py-2 rounded-xl bg-[#660665] hover:bg-[#520451] text-white text-xs font-bold shadow-sm cursor-pointer"
+            >
+              + Create Invoice (${escapeHtml(getNextInvoiceNumber())})
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDashboardTab() {
+      const isAdmin = session.role === 'admin';
+      const m = computeMetrics();
+
+      return `
+        <div class="space-y-6">
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div class="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-xs">
+              <p class="text-[11px] font-extrabold uppercase tracking-wider text-[#5A6275]">Total Billed Revenue</p>
+              <p class="text-2xl font-extrabold text-[#1E2538] mt-2">${formatINR(m.totalBilled)}</p>
+              <p class="text-xs text-emerald-700 font-semibold mt-1">${appState.invoices.length} GST invoices</p>
+            </div>
+
+            <div class="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-xs">
+              <p class="text-[11px] font-extrabold uppercase tracking-wider text-[#5A6275]">Outstanding Receivables</p>
+              <p class="text-2xl font-extrabold text-[#660665] mt-2">${formatINR(m.totalOutstanding)}</p>
+              <p class="text-xs text-[#F439B7] font-semibold mt-1">${m.partialCount + m.pendingCount + m.overdueCount} unsettled invoices</p>
+            </div>
+
+            <div class="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-xs">
+              <p class="text-[11px] font-extrabold uppercase tracking-wider text-[#5A6275]">Operating Expenses</p>
+              ${
+                isAdmin
+                  ? `<p class="text-2xl font-extrabold text-[#1E2538] mt-2">${formatINR(m.totalExpenses)}</p>
+                     <p class="text-xs text-[#5A6275] font-medium mt-1">GST Input Credit: ${formatINR(m.totalGstInput)}</p>`
+                  : `<p class="text-sm font-bold text-[#5A6275] mt-3">Restricted to Admin PIN</p>`
+              }
+            </div>
+
+            <div class="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-xs">
+              <p class="text-[11px] font-extrabold uppercase tracking-wider text-[#5A6275]">Net Operating Margin</p>
+              ${
+                isAdmin
+                  ? `<p class="text-2xl font-extrabold ${m.netProfit >= 0 ? 'text-emerald-700' : 'text-red-600'} mt-2">${formatINR(m.netProfit)}</p>
+                     <p class="text-xs text-[#5A6275] font-medium mt-1">Collected: ${formatINR(m.totalCollected)}</p>`
+                  : `<p class="text-sm font-bold text-[#5A6275] mt-3">Restricted to Admin PIN</p>`
+              }
+            </div>
+          </div>
+
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl shadow-xs overflow-hidden">
+            <div class="px-6 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
+              <h2 class="text-base font-extrabold text-[#1E2538]">Recent Invoices</h2>
+              <button type="button" id="dash-go-invoices" class="text-xs font-extrabold text-[#660665] hover:text-[#F439B7] cursor-pointer">
+                Manage All Invoices →
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-[#F9F9FB] border-b border-[#E5E7EB] text-[11px] font-extrabold uppercase tracking-wider text-[#5A6275]">
+                    <th class="py-3 px-6">Invoice #</th>
+                    <th class="py-3 px-4">Customer</th>
+                    <th class="py-3 px-4">Date</th>
+                    <th class="py-3 px-4">Total</th>
+                    <th class="py-3 px-4">Status</th>
+                    <th class="py-3 px-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E5E7EB] text-sm">
+                  ${(appState.invoices || [])
+                    .slice(0, 5)
+                    .map((inv) => {
+                      const t = computeInvoiceTotals(inv.items, inv.taxMode, inv.gstRate);
+                      return `
+                        <tr class="hover:bg-[#F9F9FB]">
+                          <td class="py-3.5 px-6 font-extrabold text-[#660665]">${escapeHtml(inv.invoiceNumber)}</td>
+                          <td class="py-3.5 px-4">
+                            <p class="font-bold text-[#1E2538]">${escapeHtml(inv.customerName)}</p>
+                            <p class="text-xs text-[#5A6275]">${escapeHtml(inv.customerCompany)}</p>
+                          </td>
+                          <td class="py-3.5 px-4 text-xs text-[#5A6275]">${escapeHtml(inv.date)}</td>
+                          <td class="py-3.5 px-4 font-extrabold text-[#1E2538]">${formatINR(t.grandTotal)}</td>
+                          <td class="py-3.5 px-4">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold ${
+                              inv.status === 'Paid'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : inv.status === 'Partial'
+                                ? 'bg-[#F439B7]/15 text-[#660665]'
+                                : inv.status === 'Overdue'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-amber-100 text-amber-800'
+                            }">${escapeHtml(inv.status)}</span>
+                          </td>
+                          <td class="py-3.5 px-6 text-right space-x-1.5">
+                            <button type="button" data-preview-inv="${escapeHtml(inv.id)}" class="preview-inv-btn px-2.5 py-1 rounded-lg border border-[#E5E7EB] text-xs font-bold text-[#660665] hover:bg-[#F9F9FB] cursor-pointer">PDF</button>
+                            <button type="button" data-edit-inv="${escapeHtml(inv.id)}" class="edit-inv-btn px-2.5 py-1 rounded-lg border border-[#E5E7EB] text-xs font-bold text-[#1E2538] hover:bg-[#F9F9FB] cursor-pointer">Edit</button>
+                            <button type="button" data-wa-inv="${escapeHtml(inv.id)}" class="wa-inv-btn px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer">WhatsApp</button>
+                          </td>
+                        </tr>
+                      `;
+                    })
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderInvoicesTab() {
+      const isAdmin = session.role === 'admin';
+      const q = ui.invoiceSearch.toLowerCase();
+      const filtered = (appState.invoices || []).filter((inv) => {
+        const matchesSearch =
+          !q ||
+          String(inv.invoiceNumber || '').toLowerCase().includes(q) ||
+          String(inv.customerName || '').toLowerCase().includes(q) ||
+          String(inv.customerCompany || '').toLowerCase().includes(q);
+        const matchesStatus =
+          ui.invoiceStatusFilter === 'ALL' || inv.status === ui.invoiceStatusFilter;
+        return matchesSearch && matchesStatus;
+      });
+
+      return `
+        <div class="space-y-5">
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl p-4 flex flex-col sm:flex-row justify-between gap-3 shadow-xs">
+            <input
+              id="invoice-search-input"
+              type="text"
+              value="${escapeHtml(ui.invoiceSearch)}"
+              placeholder="Search invoice #, client, institution..."
+              class="w-full sm:w-80 px-3.5 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] focus:bg-white focus:outline-none focus:border-[#660665] text-sm"
+            />
+            <div class="flex flex-wrap items-center gap-1.5">
+              ${['ALL', 'Paid', 'Partial', 'Pending', 'Overdue']
+                .map(
+                  (st) => `
+                <button
+                  type="button"
+                  data-inv-filter="${st}"
+                  class="inv-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer ${
+                    ui.invoiceStatusFilter === st
+                      ? 'bg-[#660665] text-white'
+                      : 'bg-[#F9F9FB] text-[#5A6275] border border-[#E5E7EB]'
+                  }"
+                >
+                  ${st}
+                </button>
+              `
+                )
+                .join('')}
+            </div>
+          </div>
+
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl shadow-xs overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-[#F9F9FB] border-b border-[#E5E7EB] text-[11px] font-extrabold uppercase tracking-wider text-[#5A6275]">
+                    <th class="py-3.5 px-6">Invoice #</th>
+                    <th class="py-3.5 px-4">Customer &amp; GSTIN</th>
+                    <th class="py-3.5 px-4">Tax Mode</th>
+                    <th class="py-3.5 px-4">Grand Total</th>
+                    <th class="py-3.5 px-4">Status</th>
+                    <th class="py-3.5 px-6 text-right">Manage</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E5E7EB] text-sm">
+                  ${
+                    filtered.length === 0
+                      ? `<tr><td colspan="6" class="py-10 text-center text-[#5A6275]">No matching invoices found.</td></tr>`
+                      : filtered
+                          .map((inv) => {
+                            const t = computeInvoiceTotals(inv.items, inv.taxMode, inv.gstRate);
+                            return `
+                              <tr class="hover:bg-[#F9F9FB]">
+                                <td class="py-3.5 px-6 font-extrabold text-[#660665]">
+                                  <div>${escapeHtml(inv.invoiceNumber)}</div>
+                                  <div class="text-[11px] font-normal text-[#5A6275]">${escapeHtml(inv.date)}</div>
+                                </td>
+                                <td class="py-3.5 px-4">
+                                  <p class="font-bold text-[#1E2538]">${escapeHtml(inv.customerName)}</p>
+                                  <p class="text-xs text-[#5A6275]">${escapeHtml(inv.customerCompany)}</p>
+                                  <p class="text-[11px] font-mono text-[#660665]">${escapeHtml(inv.customerGstin || 'B2C')}</p>
+                                </td>
+                                <td class="py-3.5 px-4 text-xs font-semibold">
+                                  ${inv.taxMode === 'INTRA' ? 'CGST + SGST' : 'IGST'} (${escapeHtml(inv.gstRate)}%)
+                                </td>
+                                <td class="py-3.5 px-4 font-extrabold text-[#1E2538]">${formatINR(t.grandTotal)}</td>
+                                <td class="py-3.5 px-4">
+                                  <button type="button" data-cycle-status="${escapeHtml(inv.id)}" title="Click to change status" class="cycle-status-btn px-2.5 py-1 rounded-full text-xs font-bold cursor-pointer ${
+                                    inv.status === 'Paid'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : inv.status === 'Partial'
+                                      ? 'bg-[#F439B7]/15 text-[#660665]'
+                                      : inv.status === 'Overdue'
+                                      ? 'bg-red-100 text-red-700'
+                                      : 'bg-amber-100 text-amber-800'
+                                  }">
+                                    ${escapeHtml(inv.status)}
+                                  </button>
+                                </td>
+                                <td class="py-3.5 px-6 text-right space-x-1">
+                                  <button type="button" data-preview-inv="${escapeHtml(inv.id)}" class="preview-inv-btn px-2.5 py-1 rounded-lg border border-[#E5E7EB] text-xs font-bold text-[#660665] hover:bg-[#F9F9FB] cursor-pointer">PDF</button>
+                                  <button type="button" data-edit-inv="${escapeHtml(inv.id)}" class="edit-inv-btn px-2.5 py-1 rounded-lg border border-[#E5E7EB] text-xs font-bold text-[#1E2538] hover:bg-[#F9F9FB] cursor-pointer">Edit</button>
+                                  <button type="button" data-wa-inv="${escapeHtml(inv.id)}" class="wa-inv-btn px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer">WhatsApp</button>
+                                  ${
+                                    isAdmin
+                                      ? `<button type="button" data-del-inv="${escapeHtml(inv.id)}" class="del-inv-btn px-2.5 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold cursor-pointer">Delete</button>`
+                                      : ''
+                                  }
+                                </td>
+                              </tr>
+                            `;
+                          })
+                          .join('')
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCustomersTab() {
+      const isAdmin = session.role === 'admin';
+      const q = ui.customerSearch.toLowerCase();
+      const extraCols = appState.customColumns?.customers || [];
+      const filtered = (appState.customers || []).filter(
+        (c) =>
+          !q ||
+          String(c.contactName || '').toLowerCase().includes(q) ||
+          String(c.companyName || '').toLowerCase().includes(q) ||
+          String(c.gstin || '').toLowerCase().includes(q)
+      );
+
+      return `
+        <div class="space-y-5">
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl p-4 flex flex-col sm:flex-row justify-between gap-3 shadow-xs">
+            <input
+              id="customer-search-input"
+              type="text"
+              value="${escapeHtml(ui.customerSearch)}"
+              placeholder="Search customer, company, GSTIN..."
+              class="w-full sm:w-80 px-3.5 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] focus:bg-white focus:outline-none focus:border-[#660665] text-sm"
+            />
+            <button
+              type="button"
+              id="open-add-customer"
+              class="px-4 py-2.5 rounded-xl bg-[#660665] hover:bg-[#520451] text-white text-xs font-bold cursor-pointer"
+            >
+              + Add Customer
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            ${filtered
+              .map(
+                (c) => `
+              <div class="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+                <div>
+                  <div class="flex items-start justify-between gap-2">
+                    <div>
+                      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-[#F439B7]/15 text-[#660665]">
+                        ${c.taxMode === 'INTER' ? 'Inter-State (IGST)' : 'Intra-State (CGST/SGST)'}
+                      </span>
+                      <h3 class="text-base font-extrabold text-[#1E2538] mt-1.5">${escapeHtml(c.companyName)}</h3>
+                      <p class="text-xs font-semibold text-[#5A6275]">Attn: ${escapeHtml(c.contactName)}</p>
+                    </div>
+                    <div class="flex gap-1">
+                      <button type="button" data-edit-cust="${escapeHtml(c.id)}" class="edit-cust-btn px-2.5 py-1 rounded-lg border border-[#E5E7EB] text-xs font-bold text-[#660665] hover:bg-[#F9F9FB] cursor-pointer">Edit</button>
+                      ${
+                        isAdmin
+                          ? `<button type="button" data-del-cust="${escapeHtml(c.id)}" class="del-cust-btn px-2.5 py-1 rounded-lg border border-red-200 text-xs font-bold text-red-600 hover:bg-red-50 cursor-pointer">Del</button>`
+                          : ''
+                      }
+                    </div>
+                  </div>
+
+                  <div class="mt-4 space-y-1 text-xs text-[#5A6275]">
+                    <p><strong class="text-[#1E2538]">WhatsApp:</strong> ${escapeHtml(c.whatsapp)}</p>
+                    <p><strong class="text-[#1E2538]">Email:</strong> ${escapeHtml(c.email)}</p>
+                    <p><strong class="text-[#1E2538]">GSTIN:</strong> <span class="font-mono text-[#660665]">${escapeHtml(c.gstin || 'Unregistered')}</span></p>
+                    <p><strong class="text-[#1E2538]">Address:</strong> ${escapeHtml(c.address)}</p>
+                    ${extraCols
+                      .map((col) => {
+                        const val = c.customFields?.[col.id];
+                        return val
+                          ? `<p><strong class="text-[#660665]">${escapeHtml(col.label)}:</strong> ${escapeHtml(val)}</p>`
+                          : '';
+                      })
+                      .join('')}
+                  </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-[#E5E7EB] flex justify-end">
+                  <button
+                    type="button"
+                    data-bill-cust="${escapeHtml(c.id)}"
+                    class="bill-cust-btn px-3 py-1.5 rounded-lg bg-[#660665] hover:bg-[#520451] text-white text-xs font-bold cursor-pointer"
+                  >
+                    Create Invoice
+                  </button>
+                </div>
+              </div>
+            `
+              )
+              .join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderVendorsTab() {
+      const isAdmin = session.role === 'admin';
+      const q = ui.vendorSearch.toLowerCase();
+      const extraCols = appState.customColumns?.vendors || [];
+      const filtered = (appState.vendors || []).filter(
+        (v) =>
+          !q ||
+          String(v.companyName || '').toLowerCase().includes(q) ||
+          String(v.category || '').toLowerCase().includes(q) ||
+          String(v.contactName || '').toLowerCase().includes(q)
+      );
+
+      return `
+        <div class="space-y-5">
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl p-4 flex flex-col sm:flex-row justify-between gap-3 shadow-xs">
+            <input
+              id="vendor-search-input"
+              type="text"
+              value="${escapeHtml(ui.vendorSearch)}"
+              placeholder="Search vendor, category, GSTIN..."
+              class="w-full sm:w-80 px-3.5 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] focus:bg-white focus:outline-none focus:border-[#660665] text-sm"
+            />
+            <button
+              type="button"
+              id="open-add-vendor"
+              class="px-4 py-2.5 rounded-xl bg-[#660665] hover:bg-[#520451] text-white text-xs font-bold cursor-pointer"
+            >
+              + Add Vendor
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            ${filtered
+              .map(
+                (v) => `
+              <div class="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-xs">
+                <div class="flex items-start justify-between gap-2">
+                  <div>
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-[#660665]/10 text-[#660665]">
+                      ${escapeHtml(v.category)}
+                    </span>
+                    <h3 class="text-base font-extrabold text-[#1E2538] mt-1.5">${escapeHtml(v.companyName)}</h3>
+                    <p class="text-xs font-semibold text-[#5A6275]">Contact: ${escapeHtml(v.contactName)}</p>
+                  </div>
+                  <div class="flex gap-1">
+                    <button type="button" data-edit-vend="${escapeHtml(v.id)}" class="edit-vend-btn px-2.5 py-1 rounded-lg border border-[#E5E7EB] text-xs font-bold text-[#660665] hover:bg-[#F9F9FB] cursor-pointer">Edit</button>
+                    ${
+                      isAdmin
+                        ? `<button type="button" data-del-vend="${escapeHtml(v.id)}" class="del-vend-btn px-2.5 py-1 rounded-lg border border-red-200 text-xs font-bold text-red-600 hover:bg-red-50 cursor-pointer">Del</button>`
+                        : ''
+                    }
+                  </div>
+                </div>
+                <div class="mt-4 space-y-1 text-xs text-[#5A6275]">
+                  <p><strong class="text-[#1E2538]">Phone:</strong> ${escapeHtml(v.phone)}</p>
+                  <p><strong class="text-[#1E2538]">Email:</strong> ${escapeHtml(v.email)}</p>
+                  <p><strong class="text-[#1E2538]">GSTIN:</strong> <span class="font-mono">${escapeHtml(v.gstin || 'N/A')}</span></p>
+                  <p><strong class="text-[#1E2538]">Address:</strong> ${escapeHtml(v.address)}</p>
+                  ${extraCols
+                    .map((col) => {
+                      const val = v.customFields?.[col.id];
+                      return val
+                        ? `<p><strong class="text-[#660665]">${escapeHtml(col.label)}:</strong> ${escapeHtml(val)}</p>`
+                        : '';
+                    })
+                    .join('')}
+                </div>
+              </div>
+            `
+              )
+              .join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderExpensesTab() {
+      const isAdmin = session.role === 'admin';
+      return `
+        <div class="space-y-5">
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-3 shadow-xs">
+            <div>
+              <h2 class="text-sm font-extrabold text-[#1E2538]">Business Expenses &amp; GST Input Credit</h2>
+              <p class="text-xs text-[#5A6275]">Add, edit, or delete operating expenses and track input tax credit.</p>
+            </div>
+            <button
+              type="button"
+              id="open-add-expense"
+              class="px-4 py-2.5 rounded-xl bg-[#660665] hover:bg-[#520451] text-white text-xs font-bold cursor-pointer"
+            >
+              + Record Expense
+            </button>
+          </div>
+
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl shadow-xs overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-[#F9F9FB] border-b border-[#E5E7EB] text-[11px] font-extrabold uppercase tracking-wider text-[#5A6275]">
+                    <th class="py-3.5 px-6">Date</th>
+                    <th class="py-3.5 px-4">Vendor</th>
+                    <th class="py-3.5 px-4">Category</th>
+                    <th class="py-3.5 px-4">Amount</th>
+                    <th class="py-3.5 px-4">GST Input</th>
+                    <th class="py-3.5 px-4">Status</th>
+                    <th class="py-3.5 px-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[#E5E7EB] text-sm">
+                  ${(appState.expenses || [])
+                    .map(
+                      (e) => `
+                    <tr class="hover:bg-[#F9F9FB]">
+                      <td class="py-3.5 px-6 text-xs text-[#5A6275]">${escapeHtml(e.date)}</td>
+                      <td class="py-3.5 px-4">
+                        <p class="font-bold text-[#1E2538]">${escapeHtml(e.vendor)}</p>
+                        <p class="text-xs text-[#5A6275]">${escapeHtml(e.notes || '')}</p>
+                      </td>
+                      <td class="py-3.5 px-4 text-xs font-semibold">${escapeHtml(e.category)}</td>
+                      <td class="py-3.5 px-4 font-extrabold text-[#1E2538]">${isAdmin ? formatINR(e.amount) : '••••••'}</td>
+                      <td class="py-3.5 px-4 text-xs font-bold text-emerald-700">${isAdmin ? formatINR(e.gstInput) : '••••'}</td>
+                      <td class="py-3.5 px-4">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold ${
+                          e.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }">${escapeHtml(e.status)}</span>
+                      </td>
+                      <td class="py-3.5 px-6 text-right space-x-1">
+                        <button type="button" data-edit-exp="${escapeHtml(e.id)}" class="edit-exp-btn px-2.5 py-1 rounded-lg border border-[#E5E7EB] text-xs font-bold text-[#660665] hover:bg-[#F9F9FB] cursor-pointer">Edit</button>
+                        ${
+                          isAdmin
+                            ? `<button type="button" data-del-exp="${escapeHtml(e.id)}" class="del-exp-btn px-2.5 py-1 rounded-lg border border-red-200 text-xs font-bold text-red-600 hover:bg-red-50 cursor-pointer">Delete</button>`
+                            : ''
+                        }
+                      </td>
+                    </tr>
+                  `
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function getVercelJsonSnippet() {
+      return JSON.stringify(
+        {
+          version: 2,
+          name: appState.company?.vercelProjectName || 'aurenza-academy-erp',
+          headers: [
+            {
+              source: '/(.*)',
+              headers: [
+                { key: 'X-Content-Type-Options', value: 'nosniff' },
+                { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+                { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' }
+              ]
+            }
+          ],
+          rewrites: [
+            { source: '/(.*)', destination: '/index.html' }
+          ]
+        },
+        null,
+        2
+      );
+    }
+
+    function renderVercelTab() {
+      const snippet = getVercelJsonSnippet();
+      return `
+        <div class="space-y-6">
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl p-6 shadow-xs space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 class="text-lg font-extrabold text-[#660665]">Vercel Static Deployment Configuration</h2>
+                <p class="text-xs text-[#5A6275]">Zero-build single-file HTML deployment with SPA rewrites and security headers.</p>
+              </div>
+              <button type="button" id="copy-vercel-json-btn" class="px-4 py-2 rounded-xl bg-[#660665] hover:bg-[#520451] text-white text-xs font-bold cursor-pointer">
+                Copy vercel.json
+              </button>
+            </div>
+
+            <pre id="vercel-json-code" class="p-4 rounded-xl bg-[#1E2538] text-white font-mono text-xs overflow-x-auto">${escapeHtml(snippet)}</pre>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-2">
+              <div class="p-4 rounded-xl bg-[#F9F9FB] border border-[#E5E7EB]">
+                <p class="font-extrabold text-[#660665] mb-1">1. Folder Structure</p>
+                <p class="text-[#5A6275]">Place <code class="font-mono font-bold text-[#1E2538]">index.html</code> and <code class="font-mono font-bold text-[#1E2538]">vercel.json</code> in your project root.</p>
+              </div>
+              <div class="p-4 rounded-xl bg-[#F9F9FB] border border-[#E5E7EB]">
+                <p class="font-extrabold text-[#F439B7] mb-1">2. Vercel Build Settings</p>
+                <p class="text-[#5A6275]">Framework Preset: <strong>Other</strong> • Build Command: <em>None</em> • Output Directory: <em>Root / .</em></p>
+              </div>
+              <div class="p-4 rounded-xl bg-[#F9F9FB] border border-[#E5E7EB]">
+                <p class="font-extrabold text-[#1E2538] mb-1">3. Team &amp; Data Hygiene</p>
+                <p class="text-[#5A6275]">Rotate default PINs in Settings, export JSON backups regularly, and connect a webhook for external logging.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSettingsTab() {
+      if (session.role !== 'admin') {
+        return `<div class="bg-white border border-[#E5E7EB] rounded-2xl p-6 text-sm font-bold text-[#5A6275]">Admin PIN required to edit company settings and custom columns.</div>`;
+      }
+      const c = appState.company;
+
+      return `
+        <div class="space-y-6">
+          <form id="company-settings-form" class="bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-xs space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB]">
+              <div>
+                <h2 class="text-lg font-extrabold text-[#660665]">Company Profile, GST &amp; Access PINs</h2>
+                <p class="text-xs text-[#5A6275]">Edit corporate identity, bank/UPI details, Vercel project info, and role PINs.</p>
+              </div>
+              ${renderAurenzaLogoSVG('w-48', true)}
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label class="block font-bold mb-1">Company Name</label>
+                <input name="name" type="text" required value="${escapeHtml(c.name)}" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-semibold" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Company GSTIN</label>
+                <input name="gstin" type="text" value="${escapeHtml(c.gstin)}" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-mono" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">CIN</label>
+                <input name="cin" type="text" value="${escapeHtml(c.cin)}" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-mono" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Invoice Prefix</label>
+                <input name="invoicePrefix" type="text" value="${escapeHtml(c.invoicePrefix)}" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-mono" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Billing Email</label>
+                <input name="email" type="email" value="${escapeHtml(c.email)}" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Phone / WhatsApp</label>
+                <input name="phone" type="text" value="${escapeHtml(c.phone)}" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div class="md:col-span-2">
+                <label class="block font-bold mb-1">Registered Office Address</label>
+                <input name="address" type="text" value="${escapeHtml(c.address)}" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Bank Name</label>
+                <input name="bankName" type="text" value="${escapeHtml(c.bankName)}" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block font-bold mb-1">Account No</label>
+                  <input name="accountNo" type="text" value="${escapeHtml(c.accountNo)}" class="w-full px-3 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-mono" />
+                </div>
+                <div>
+                  <label class="block font-bold mb-1">IFSC</label>
+                  <input name="ifsc" type="text" value="${escapeHtml(c.ifsc)}" class="w-full px-3 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-mono" />
+                </div>
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Corporate UPI ID</label>
+                <input name="upiId" type="text" value="${escapeHtml(c.upiId)}" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-mono" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Vercel Project Name</label>
+                <input name="vercelProjectName" type="text" value="${escapeHtml(c.vercelProjectName || '')}" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-mono" />
+              </div>
+              <div>
+                <label class="block font-bold text-[#660665] mb-1">Admin Login PIN</label>
+                <input name="adminCodeHint" type="text" required value="${escapeHtml(c.adminCodeHint)}" class="w-full px-3.5 py-2.5 rounded-xl border border-[#660665]/30 bg-[#F9F9FB] font-mono font-bold" />
+              </div>
+              <div>
+                <label class="block font-bold text-[#660665] mb-1">Employee Login PIN</label>
+                <input name="employeeCodeHint" type="text" required value="${escapeHtml(c.employeeCodeHint)}" class="w-full px-3.5 py-2.5 rounded-xl border border-[#660665]/30 bg-[#F9F9FB] font-mono font-bold" />
+              </div>
+              <div class="md:col-span-2">
+                <label class="block font-bold mb-1">Optional Webhook Sync URL (HTTPS)</label>
+                <input name="syncWebhookUrl" type="text" value="${escapeHtml(c.syncWebhookUrl || '')}" placeholder="https://your-webhook.example.com/aurenza-sync" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-mono" />
+              </div>
+            </div>
+
+            <div class="flex justify-end pt-3 border-t border-[#E5E7EB]">
+              <button type="submit" class="px-6 py-3 rounded-xl bg-[#660665] hover:bg-[#520451] text-white text-xs font-extrabold uppercase tracking-wider shadow-sm cursor-pointer">
+                Save Settings
+              </button>
+            </div>
+          </form>
+
+          <!-- Full Add / Edit / Delete Custom Columns Manager -->
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-xs space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E5E7EB]">
+              <div>
+                <h2 class="text-lg font-extrabold text-[#1E2538]">Custom Columns Manager (Add / Edit / Delete)</h2>
+                <p class="text-xs text-[#5A6275]">Customize extra fields for Invoice Line Items, Customers, and Vendors.</p>
+              </div>
+              <button type="button" id="settings-open-logo-editor" class="px-4 py-2 rounded-xl bg-[#F439B7] hover:bg-[#d92da2] text-white text-xs font-bold cursor-pointer">
+                Edit Logo &amp; Colors
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 text-xs">
+              ${['invoiceItems', 'customers', 'vendors']
+                .map((scope) => {
+                  const labels = {
+                    invoiceItems: 'Invoice Line-Item Columns',
+                    customers: 'Customer Custom Columns',
+                    vendors: 'Vendor Custom Columns'
+                  };
+                  const cols = appState.customColumns?.[scope] || [];
+                  return `
+                    <div class="p-4 rounded-xl bg-[#F9F9FB] border border-[#E5E7EB] space-y-3">
+                      <p class="font-extrabold text-[#660665] uppercase">${labels[scope]}</p>
+                      <div class="space-y-2">
+                        ${
+                          cols.length === 0
+                            ? `<p class="text-[#5A6275] italic">No custom columns defined.</p>`
+                            : cols
+                                .map((col) => {
+                                  const isEditingThis =
+                                    ui.editingColScope === scope && ui.editingColId === col.id;
+                                  if (isEditingThis) {
+                                    return `
+                                      <form data-edit-col-scope="${scope}" data-edit-col-id="${escapeHtml(col.id)}" class="edit-custom-col-form bg-white p-2.5 rounded-lg border border-[#660665] space-y-2">
+                                        <input type="text" required value="${escapeHtml(col.label)}" class="w-full px-2 py-1 rounded border border-[#E5E7EB] text-xs font-bold" />
+                                        <div class="flex items-center justify-between gap-2">
+                                          <select class="px-2 py-1 rounded border border-[#E5E7EB] text-xs font-semibold">
+                                            <option value="text" ${col.type === 'text' ? 'selected' : ''}>Text</option>
+                                            <option value="number" ${col.type === 'number' ? 'selected' : ''}>Number</option>
+                                          </select>
+                                          <div class="flex gap-1.5">
+                                            <button type="button" id="cancel-edit-col-btn" class="px-2 py-1 rounded border border-[#E5E7EB] text-[11px] font-bold cursor-pointer">Cancel</button>
+                                            <button type="submit" class="px-2.5 py-1 rounded bg-[#660665] text-white text-[11px] font-bold cursor-pointer">Save</button>
+                                          </div>
+                                        </div>
+                                      </form>
+                                    `;
+                                  }
+                                  return `
+                                    <div class="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-[#E5E7EB]">
+                                      <span class="font-bold text-[#1E2538]">${escapeHtml(col.label)} <span class="text-[10px] font-mono text-[#5A6275]">(${escapeHtml(col.type)})</span></span>
+                                      <div class="flex items-center gap-2">
+                                        <button type="button" data-start-edit-col-scope="${scope}" data-start-edit-col-id="${escapeHtml(col.id)}" class="start-edit-col-btn text-[#660665] font-bold hover:underline cursor-pointer">Edit</button>
+                                        <button type="button" data-del-col-scope="${scope}" data-del-col-id="${escapeHtml(col.id)}" class="del-custom-col-btn text-red-600 font-bold hover:underline cursor-pointer">Delete</button>
+                                      </div>
+                                    </div>
+                                  `;
+                                })
+                                .join('')
+                        }
+                      </div>
+
+                      <form data-add-col-scope="${scope}" class="add-custom-col-form flex gap-1.5 pt-1">
+                        <input type="text" required placeholder="New column label" class="flex-1 px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-xs" />
+                        <select class="px-2 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-xs font-semibold">
+                          <option value="text">Text</option>
+                          <option value="number">Number</option>
+                        </select>
+                        <button type="submit" class="px-3 py-1.5 rounded-lg bg-[#660665] text-white font-bold cursor-pointer">+ Add</button>
+                      </form>
+                    </div>
+                  `;
+                })
+                .join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderAuditTab() {
+      if (session.role !== 'admin') {
+        return `<div class="bg-white border border-[#E5E7EB] rounded-2xl p-6 text-sm font-bold text-[#5A6275]">Admin PIN required to view audit logs and reset data.</div>`;
+      }
+      const q = ui.auditSearch.toLowerCase();
+      const logs = (appState.auditLogs || []).filter(
+        (l) =>
+          !q ||
+          String(l.action || '').toLowerCase().includes(q) ||
+          String(l.details || '').toLowerCase().includes(q) ||
+          String(l.actor || '').toLowerCase().includes(q)
+      );
+
+      return `
+        <div class="space-y-6">
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-base font-extrabold text-[#1E2538]">Backup, Restore &amp; Reset</h2>
+              <p class="text-xs text-[#5A6275]">Export JSON or CSV invoices, restore a JSON backup, or reseed demo records.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" id="audit-export-json" class="px-3.5 py-2 rounded-xl bg-[#660665] text-white text-xs font-bold cursor-pointer">Export JSON</button>
+              <button type="button" id="audit-export-csv" class="px-3.5 py-2 rounded-xl border border-[#660665] text-[#660665] text-xs font-bold cursor-pointer">Export Invoices CSV</button>
+              <label class="px-3.5 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] text-xs font-bold cursor-pointer">
+                Import JSON
+                <input id="audit-import-json" type="file" accept="application/json" class="hidden" />
+              </label>
+              <button type="button" id="audit-reset-demo" class="px-3.5 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold cursor-pointer">Reset Demo Data</button>
+            </div>
+          </div>
+
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl shadow-xs overflow-hidden">
+            <div class="p-4 border-b border-[#E5E7EB] flex flex-col sm:flex-row justify-between gap-3">
+              <h3 class="text-sm font-extrabold text-[#1E2538]">Workspace Activity Log</h3>
+              <input
+                id="audit-search-input"
+                type="text"
+                value="${escapeHtml(ui.auditSearch)}"
+                placeholder="Filter audit logs..."
+                class="w-full sm:w-64 px-3 py-1.5 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] text-xs"
+              />
+            </div>
+            <div class="divide-y divide-[#E5E7EB] max-h-96 overflow-y-auto text-xs">
+              ${logs
+                .map(
+                  (l) => `
+                <div class="px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <div>
+                    <span class="font-mono font-bold text-[#660665]">[${escapeHtml(l.action)}]</span>
+                    <span class="font-semibold text-[#1E2538] ml-1">${escapeHtml(l.details)}</span>
+                  </div>
+                  <div class="text-[#5A6275] shrink-0">
+                    ${escapeHtml(l.actor)} (${escapeHtml(l.role)}) • <span class="font-mono">${escapeHtml(l.timestamp)}</span>
+                  </div>
+                </div>
+              `
+                )
+                .join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ========================================================================
+    // 6. MODALS: LOGO EDITOR, INVOICE BUILDER, A4 PDF PREVIEW, ENTITIES, GUIDE
+    // ========================================================================
+    function renderLogoEditorModal() {
+      const b = appState.branding || getSeedState().branding;
+      return `
+        <div class="fixed inset-0 z-50 bg-slate-900/65 flex items-center justify-center p-4 no-print">
+          <form id="logo-editor-form" class="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
+            <div class="bg-[#660665] text-white px-6 py-4 flex items-center justify-between">
+              <div>
+                <p class="text-[10px] font-extrabold uppercase tracking-widest text-[#F439B7]">BRAND IDENTITY STUDIO</p>
+                <h3 class="font-extrabold text-base">Logo &amp; Brand Editor</h3>
+              </div>
+              <button type="button" data-close-modal="logo" class="close-modal-btn px-3 py-1 rounded-lg bg-white/15 text-xs font-bold cursor-pointer">Close</button>
+            </div>
+
+            <div class="p-6 max-h-[80vh] overflow-y-auto space-y-5 text-xs">
+              <div class="p-5 rounded-2xl border border-[#E5E7EB] flex flex-col items-center justify-center min-h-[140px]" style="background:${escapeHtml(b.logoBgColor || '#F9F9FB')}">
+                <p class="text-[10px] font-extrabold uppercase tracking-widest text-[#5A6275] mb-3">Live Logo Preview</p>
+                ${renderAurenzaLogoSVG('w-64 sm:w-72', false)}
+              </div>
+
+              <div>
+                <label class="block font-bold mb-1.5">Logo Mode</label>
+                <div class="grid grid-cols-3 gap-2">
+                  ${[
+                    { id: 'vector', label: 'Exact Vector Logo' },
+                    { id: 'image', label: 'Image Upload / URL' },
+                    { id: 'text', label: 'Custom Text Logo' }
+                  ]
+                    .map(
+                      (m) => `
+                    <button
+                      type="button"
+                      data-logo-mode="${m.id}"
+                      class="logo-mode-btn py-2 px-3 rounded-xl border font-bold cursor-pointer ${
+                        b.mode === m.id
+                          ? 'bg-[#660665] text-white border-[#660665]'
+                          : 'bg-[#F9F9FB] text-[#1E2538] border-[#E5E7EB]'
+                      }"
+                    >
+                      ${m.label}
+                    </button>
+                  `
+                    )
+                    .join('')}
+                </div>
+              </div>
+
+              ${
+                b.mode === 'image'
+                  ? `
+                <div class="p-4 rounded-xl bg-[#F9F9FB] border border-[#E5E7EB] space-y-2.5">
+                  <label class="block font-bold">Upload PNG / SVG / JPG / WebP Logo</label>
+                  <input id="logo-file-upload" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" class="block w-full text-xs" />
+                  <div>
+                    <label class="block font-bold mb-1">Or Paste Image URL</label>
+                    <input id="logo-image-url" type="text" value="${escapeHtml(b.customImageUrl || '')}" placeholder="https://example.com/aurenza-logo.png" class="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white text-xs font-mono" />
+                  </div>
+                </div>
+              `
+                  : ''
+              }
+
+              ${
+                b.mode === 'text'
+                  ? `
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-[#F9F9FB] border border-[#E5E7EB]">
+                  <div>
+                    <label class="block font-bold mb-1">Primary Wordmark</label>
+                    <input id="logo-text-title" type="text" value="${escapeHtml(b.customTextTitle || 'AURENZA')}" class="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white font-bold" />
+                  </div>
+                  <div>
+                    <label class="block font-bold mb-1">Subtitle Left</label>
+                    <input id="logo-sub-left" type="text" value="${escapeHtml(b.customSubtitlePrefix || 'ACADEMY')}" class="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white" />
+                  </div>
+                  <div>
+                    <label class="block font-bold mb-1">Subtitle Right</label>
+                    <input id="logo-sub-right" type="text" value="${escapeHtml(b.customSubtitleSuffix || 'PRIVATE LIMITED')}" class="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white" />
+                  </div>
+                </div>
+              `
+                  : ''
+              }
+
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label class="block font-bold mb-1">Plum Color</label>
+                  <input id="logo-primary-color" type="color" value="${escapeHtml(b.primaryColor || '#660665')}" class="w-full h-9 rounded-lg border border-[#E5E7EB] cursor-pointer" />
+                </div>
+                <div>
+                  <label class="block font-bold mb-1">Magenta Color</label>
+                  <input id="logo-accent-color" type="color" value="${escapeHtml(b.accentColor || '#F439B7')}" class="w-full h-9 rounded-lg border border-[#E5E7EB] cursor-pointer" />
+                </div>
+                <div>
+                  <label class="block font-bold mb-1">Subtitle Color</label>
+                  <input id="logo-sub-color" type="color" value="${escapeHtml(b.subtitleColor || '#1E2538')}" class="w-full h-9 rounded-lg border border-[#E5E7EB] cursor-pointer" />
+                </div>
+                <div>
+                  <label class="block font-bold mb-1">Logo Box BG</label>
+                  <select id="logo-bg-color" class="w-full h-9 px-2 rounded-lg border border-[#E5E7EB] bg-[#F9F9FB] font-semibold">
+                    <option value="#F9F9FB" ${b.logoBgColor === '#F9F9FB' ? 'selected' : ''}>#F9F9FB (Off-White)</option>
+                    <option value="#FFFFFF" ${b.logoBgColor === '#FFFFFF' ? 'selected' : ''}>#FFFFFF (Pure White)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center pt-1">
+                <div>
+                  <label class="block font-bold mb-1">Scale: <span id="logo-scale-val">${Number(b.scale) || 100}%</span></label>
+                  <input id="logo-scale-range" type="range" min="75" max="125" value="${Number(b.scale) || 100}" class="w-full accent-[#660665] cursor-pointer" />
+                </div>
+                <label class="flex items-center gap-2 font-bold cursor-pointer">
+                  <input id="logo-show-sub" type="checkbox" ${b.showSubtitle !== false ? 'checked' : ''} class="accent-[#660665]" />
+                  <span>Show Subtitle</span>
+                </label>
+                <label class="flex items-center gap-2 font-bold cursor-pointer">
+                  <input id="logo-show-lines" type="checkbox" ${b.showFlankingLines !== false ? 'checked' : ''} class="accent-[#F439B7]" />
+                  <span>Show Flanking Lines</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="px-6 py-4 bg-[#F9F9FB] border-t border-[#E5E7EB] flex flex-wrap justify-between gap-2">
+              <button type="button" id="reset-default-logo-btn" class="px-4 py-2 rounded-xl border border-[#E5E7EB] bg-white hover:border-[#660665] text-xs font-bold text-[#1E2538] cursor-pointer">
+                Reset to Default Logo
+              </button>
+              <div class="flex gap-2">
+                <button type="button" data-close-modal="logo" class="close-modal-btn px-4 py-2 rounded-xl border border-[#E5E7EB] bg-white text-xs font-bold cursor-pointer">Cancel</button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-[#660665] hover:bg-[#520451] text-white text-xs font-extrabold cursor-pointer">Save Logo</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      `;
+    }
+
+    function renderInvoiceEditorModal() {
+      const d = ui.draftInvoice || createBlankDraftInvoice();
+      const t = computeInvoiceTotals(d.items, d.taxMode, d.gstRate);
+      const customCols = appState.customColumns?.invoiceItems || [];
+
+      return `
+        <div class="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-2 sm:p-5 overflow-y-auto no-print">
+          <form id="invoice-editor-form" class="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl max-w-6xl w-full overflow-hidden my-auto">
+            <div class="bg-[#660665] text-white px-6 py-4 flex items-center justify-between">
+              <div>
+                <p class="text-[10px] font-extrabold uppercase tracking-widest text-[#F439B7]">AURENZA GST BILLING ENGINE</p>
+                <h2 class="text-lg font-extrabold">${ui.editingInvoiceId ? `Edit Invoice ${escapeHtml(d.invoiceNumber)}` : `Create Invoice ${escapeHtml(d.invoiceNumber)}`}</h2>
+              </div>
+              <button type="button" data-close-modal="invoice" class="close-modal-btn px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-xs font-bold cursor-pointer">Close</button>
+            </div>
+
+            <div class="p-6 max-h-[82vh] overflow-y-auto space-y-5">
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-[#F9F9FB] p-4 rounded-xl border border-[#E5E7EB]">
+                <div>
+                  <label class="block text-xs font-bold mb-1">Invoice Number</label>
+                  <input id="inv-number" type="text" required value="${escapeHtml(d.invoiceNumber)}" class="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white font-mono text-xs font-bold text-[#660665]" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold mb-1">Invoice Date</label>
+                  <input id="inv-date" type="date" required value="${escapeHtml(d.date)}" class="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white text-xs" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold mb-1">Due Date</label>
+                  <input id="inv-due" type="date" required value="${escapeHtml(d.dueDate)}" class="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white text-xs" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-[#660665] mb-1">Quick-Fill Customer</label>
+                  <select id="inv-customer-picker" class="w-full px-3 py-2 rounded-lg border border-[#660665]/40 bg-white text-xs font-semibold">
+                    <option value="">-- Select Saved Customer --</option>
+                    ${(appState.customers || [])
+                      .map((c) => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.companyName)} (${escapeHtml(c.contactName)})</option>`)
+                      .join('')}
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label class="block text-xs font-bold mb-1">Customer Contact Name *</label>
+                  <input id="inv-cust-name" type="text" required value="${escapeHtml(d.customerName)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold mb-1">Company / Institution</label>
+                  <input id="inv-cust-company" type="text" value="${escapeHtml(d.customerCompany)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] text-sm" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold mb-1">WhatsApp Number *</label>
+                  <input id="inv-cust-phone" type="text" required value="${escapeHtml(d.customerPhone)}" placeholder="919848012345" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] text-sm font-mono" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold mb-1">Customer GSTIN</label>
+                  <input id="inv-cust-gstin" type="text" value="${escapeHtml(d.customerGstin)}" placeholder="37AABCV4512K1Z5" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] text-sm font-mono" />
+                </div>
+                <div class="sm:col-span-2">
+                  <label class="block text-xs font-bold mb-1">Billing Address</label>
+                  <input id="inv-cust-address" type="text" value="${escapeHtml(d.customerAddress)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] text-sm" />
+                </div>
+              </div>
+
+              <div>
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                  <h3 class="text-xs font-extrabold uppercase tracking-wider text-[#660665]">Line Items &amp; Columns</h3>
+                  <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <label class="inline-flex items-center gap-1 font-semibold cursor-pointer">
+                      <input id="toggle-hsn-col" type="checkbox" ${appState.showHsnCol !== false ? 'checked' : ''} class="accent-[#660665]" />
+                      <span>HSN/SAC</span>
+                    </label>
+                    <label class="inline-flex items-center gap-1 font-semibold cursor-pointer">
+                      <input id="toggle-disc-col" type="checkbox" ${appState.showDiscountCol !== false ? 'checked' : ''} class="accent-[#660665]" />
+                      <span>Discount %</span>
+                    </label>
+                    <button type="button" id="inline-add-custom-col-btn" class="px-2.5 py-1 rounded-lg border border-[#660665]/40 text-[#660665] hover:bg-[#660665]/5 font-bold cursor-pointer">
+                      + Add Column
+                    </button>
+                    <button type="button" id="add-line-item-btn" class="px-3 py-1.5 rounded-lg bg-[#F439B7]/15 hover:bg-[#F439B7]/25 text-[#660665] font-bold cursor-pointer">
+                      + Add Item Row
+                    </button>
+                  </div>
+                </div>
+
+                <div class="space-y-2.5">
+                  ${d.items
+                    .map(
+                      (item, idx) => `
+                    <div class="bg-[#F9F9FB] p-3.5 rounded-xl border border-[#E5E7EB] space-y-2.5">
+                      <div class="grid grid-cols-12 gap-2 items-center">
+                        <div class="col-span-12 sm:col-span-5">
+                          <label class="block text-[10px] font-bold text-[#5A6275]">Description *</label>
+                          <input data-item-idx="${idx}" data-field="description" type="text" required value="${escapeHtml(item.description)}" placeholder="Course / Workshop / Service" class="item-input w-full px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-xs" />
+                        </div>
+                        ${
+                          appState.showHsnCol !== false
+                            ? `
+                          <div class="col-span-4 sm:col-span-2">
+                            <label class="block text-[10px] font-bold text-[#5A6275]">HSN/SAC</label>
+                            <input data-item-idx="${idx}" data-field="hsn" type="text" value="${escapeHtml(item.hsn)}" class="item-input w-full px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-xs font-mono" />
+                          </div>
+                        `
+                            : ''
+                        }
+                        <div class="col-span-3 sm:col-span-1">
+                          <label class="block text-[10px] font-bold text-[#5A6275]">Qty</label>
+                          <input data-item-idx="${idx}" data-field="qty" type="number" min="1" required value="${Number(item.qty) || 1}" class="item-input w-full px-2 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-xs" />
+                        </div>
+                        <div class="col-span-5 sm:col-span-2">
+                          <label class="block text-[10px] font-bold text-[#5A6275]">Rate (₹)</label>
+                          <input data-item-idx="${idx}" data-field="rate" type="number" min="0" step="0.01" required value="${Number(item.rate) || 0}" class="item-input w-full px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-xs font-semibold" />
+                        </div>
+                        ${
+                          appState.showDiscountCol !== false
+                            ? `
+                          <div class="col-span-9 sm:col-span-1">
+                            <label class="block text-[10px] font-bold text-[#5A6275]">Disc %</label>
+                            <input data-item-idx="${idx}" data-field="discount" type="number" min="0" max="100" value="${Number(item.discount) || 0}" class="item-input w-full px-2 py-1.5 rounded-lg border border-[#E5E7EB] bg-white text-xs" />
+                          </div>
+                        `
+                            : ''
+                        }
+                        <div class="col-span-3 sm:col-span-1 flex justify-end pt-3">
+                          <button type="button" data-remove-item="${idx}" class="remove-item-btn px-2 py-1 rounded-lg text-xs font-bold text-red-600 hover:bg-red-50 cursor-pointer">✕</button>
+                        </div>
+                      </div>
+
+                      ${
+                        customCols.length > 0
+                          ? `
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-[#E5E7EB]/70">
+                          ${customCols
+                            .map((col) => {
+                              const cVal = item.customFields?.[col.id] ?? '';
+                              return `
+                              <div>
+                                <label class="block text-[10px] font-extrabold text-[#660665]">${escapeHtml(col.label)}</label>
+                                <input
+                                  data-item-idx="${idx}"
+                                  data-custom-col-id="${escapeHtml(col.id)}"
+                                  type="${col.type === 'number' ? 'number' : 'text'}"
+                                  value="${escapeHtml(cVal)}"
+                                  placeholder="${escapeHtml(col.label)}"
+                                  class="item-custom-input w-full px-2.5 py-1 rounded-lg border border-[#660665]/25 bg-white text-xs"
+                                />
+                              </div>
+                            `;
+                            })
+                            .join('')}
+                        </div>
+                      `
+                          : ''
+                      }
+                    </div>
+                  `
+                    )
+                    .join('')}
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+                <div class="bg-[#F9F9FB] p-4 rounded-xl border border-[#E5E7EB] space-y-3">
+                  <h4 class="text-xs font-extrabold uppercase tracking-wider text-[#660665]">GST &amp; Payment Settings</h4>
+                  <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label class="block font-bold mb-1">GST Mode</label>
+                      <select id="inv-tax-mode" class="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white font-semibold">
+                        <option value="INTRA" ${d.taxMode === 'INTRA' ? 'selected' : ''}>Intra-State (CGST + SGST)</option>
+                        <option value="INTER" ${d.taxMode === 'INTER' ? 'selected' : ''}>Inter-State (IGST)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block font-bold mb-1">GST Rate (%)</label>
+                      <select id="inv-gst-rate" class="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white font-semibold">
+                        ${[0, 5, 12, 18, 28]
+                          .map((r) => `<option value="${r}" ${Number(d.gstRate) === r ? 'selected' : ''}>${r}% GST</option>`)
+                          .join('')}
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block font-bold mb-1">Payment Status</label>
+                      <select id="inv-status" class="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white font-semibold">
+                        ${['Pending', 'Partial', 'Paid', 'Overdue']
+                          .map((st) => `<option value="${st}" ${d.status === st ? 'selected' : ''}>${st}</option>`)
+                          .join('')}
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block font-bold mb-1">Payment Mode</label>
+                      <input id="inv-pay-mode" type="text" value="${escapeHtml(d.paymentMode || 'Bank Transfer (NEFT)')}" class="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white" />
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold mb-1">Notes</label>
+                    <input id="inv-notes" type="text" value="${escapeHtml(d.notes || '')}" class="w-full px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white text-xs" />
+                  </div>
+                </div>
+
+                <div class="bg-[#F9F9FB] p-5 rounded-xl border border-[#E5E7EB] flex flex-col justify-between text-xs space-y-2">
+                  <div class="space-y-1.5">
+                    <div class="flex justify-between">
+                      <span class="text-[#5A6275]">Gross Subtotal:</span>
+                      <span class="font-semibold">${formatINR(t.grossSubtotal)}</span>
+                    </div>
+                    <div class="flex justify-between text-emerald-700">
+                      <span>Discount:</span>
+                      <span>- ${formatINR(t.totalDiscount)}</span>
+                    </div>
+                    <div class="flex justify-between font-bold pt-1 border-t border-[#E5E7EB]">
+                      <span>Taxable Value:</span>
+                      <span>${formatINR(t.taxableAmount)}</span>
+                    </div>
+                    ${
+                      d.taxMode === 'INTRA'
+                        ? `<div class="flex justify-between text-[#5A6275]"><span>CGST (${Number(d.gstRate) / 2}%):</span><span>${formatINR(t.cgst)}</span></div>
+                           <div class="flex justify-between text-[#5A6275]"><span>SGST (${Number(d.gstRate) / 2}%):</span><span>${formatINR(t.sgst)}</span></div>`
+                        : `<div class="flex justify-between text-[#5A6275]"><span>IGST (${Number(d.gstRate)}%):</span><span>${formatINR(t.igst)}</span></div>`
+                    }
+                  </div>
+                  <div class="flex justify-between items-center p-3.5 rounded-xl bg-[#660665] text-white font-extrabold text-sm">
+                    <span>GRAND TOTAL</span>
+                    <span>${formatINR(t.grandTotal)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="px-6 py-4 bg-[#F9F9FB] border-t border-[#E5E7EB] flex flex-wrap justify-end gap-2">
+              <button type="button" data-close-modal="invoice" class="close-modal-btn px-4 py-2 rounded-xl border border-[#E5E7EB] bg-white text-xs font-bold cursor-pointer">Cancel</button>
+              <button type="submit" class="px-6 py-2 rounded-xl bg-[#660665] hover:bg-[#520451] text-white text-xs font-extrabold shadow-sm cursor-pointer">Save Invoice</button>
+            </div>
+          </form>
+        </div>
+      `;
+    }
+
+    function renderInvoicePreviewModal() {
+      const inv = (appState.invoices || []).find((i) => i.id === ui.previewInvoiceId);
+      if (!inv) return '';
+      const c = appState.company;
+      const t = computeInvoiceTotals(inv.items, inv.taxMode, inv.gstRate);
+      const customCols = appState.customColumns?.invoiceItems || [];
+      const showHsn = appState.showHsnCol !== false;
+      const showDisc = appState.showDiscountCol !== false;
+
+      return `
+        <div class="fixed inset-0 z-50 bg-slate-900/65 flex items-center justify-center p-2 sm:p-6 overflow-y-auto">
+          <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden my-auto">
+            <div class="bg-[#1E2538] text-white px-6 py-4 flex flex-wrap items-center justify-between gap-3 no-print">
+              <span class="text-xs font-extrabold uppercase tracking-wider text-[#F439B7]">
+                A4 Printable Tax Invoice — ${escapeHtml(inv.invoiceNumber)}
+              </span>
+              <div class="flex items-center gap-2">
+                <button type="button" id="modal-wa-share" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer">Share on WhatsApp</button>
+                <button type="button" id="modal-print-pdf" class="px-3.5 py-2 rounded-xl bg-[#F439B7] hover:bg-[#d92da2] text-white text-xs font-bold cursor-pointer">Print / Save PDF</button>
+                <button type="button" data-close-modal="preview" class="close-modal-btn px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold cursor-pointer">Close</button>
+              </div>
+            </div>
+
+            <div id="a4-invoice-sheet" class="p-6 sm:p-10 bg-white text-[#1E2538] space-y-6 max-h-[82vh] overflow-y-auto">
+              <div class="flex flex-col sm:flex-row justify-between items-start gap-6 pb-5 border-b-2 border-[#660665]">
+                <div class="space-y-1.5">
+                  ${renderAurenzaLogoSVG('w-64 sm:w-72', false)}
+                  <p class="text-xs text-[#5A6275] max-w-md pt-1">${escapeHtml(c.address)}</p>
+                  <p class="text-xs font-bold text-[#1E2538]">GSTIN: ${escapeHtml(c.gstin)} • CIN: ${escapeHtml(c.cin)}</p>
+                  <p class="text-xs text-[#5A6275]">${escapeHtml(c.email)} | ${escapeHtml(c.phone)}</p>
+                </div>
+
+                <div class="sm:text-right space-y-1">
+                  <span class="inline-block px-3 py-1 rounded-md bg-[#660665] text-white text-[11px] font-extrabold tracking-widest uppercase">
+                    TAX INVOICE
+                  </span>
+                  <p class="text-xl font-extrabold text-[#660665] pt-1">${escapeHtml(inv.invoiceNumber)}</p>
+                  <p class="text-xs text-[#5A6275]"><strong>Date:</strong> ${escapeHtml(inv.date)}</p>
+                  <p class="text-xs text-[#5A6275]"><strong>Due Date:</strong> ${escapeHtml(inv.dueDate)}</p>
+                  <p class="text-xs"><strong>Status:</strong> <span class="font-extrabold text-[#F439B7]">${escapeHtml(inv.status)}</span></p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#F9F9FB] p-4 rounded-xl border border-[#E5E7EB] text-xs">
+                <div>
+                  <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#F439B7] mb-1">Billed To</p>
+                  <p class="font-extrabold text-sm text-[#1E2538]">${escapeHtml(inv.customerCompany || inv.customerName)}</p>
+                  <p class="font-semibold">Attn: ${escapeHtml(inv.customerName)}</p>
+                  <p class="text-[#5A6275] mt-1">${escapeHtml(inv.customerAddress)}</p>
+                  <p class="font-mono font-bold text-[#660665] mt-1">GSTIN: ${escapeHtml(inv.customerGstin || 'Unregistered')}</p>
+                  <p class="text-[#5A6275]">Phone: ${escapeHtml(inv.customerPhone)}</p>
+                </div>
+                <div class="sm:text-right">
+                  <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#F439B7] mb-1">GST Classification</p>
+                  <p class="font-bold text-[#1E2538]">${inv.taxMode === 'INTRA' ? 'Intra-State (CGST + SGST)' : 'Inter-State (IGST)'}</p>
+                  <p class="text-[#5A6275]">Applicable GST Rate: ${escapeHtml(inv.gstRate)}%</p>
+                  <p class="text-[#5A6275] mt-2"><strong>Mode:</strong> ${escapeHtml(inv.paymentMode || 'Bank Transfer')}</p>
+                </div>
+              </div>
+
+              <table class="w-full text-left border-collapse border border-[#E5E7EB] text-xs">
+                <thead>
+                  <tr class="bg-[#660665] text-white text-[11px] uppercase">
+                    <th class="py-2 px-3 border border-[#660665]">#</th>
+                    <th class="py-2 px-3 border border-[#660665]">Description</th>
+                    ${customCols.map((col) => `<th class="py-2 px-3 border border-[#660665]">${escapeHtml(col.label)}</th>`).join('')}
+                    ${showHsn ? `<th class="py-2 px-3 border border-[#660665]">HSN/SAC</th>` : ''}
+                    <th class="py-2 px-3 border border-[#660665] text-right">Qty</th>
+                    <th class="py-2 px-3 border border-[#660665] text-right">Rate</th>
+                    ${showDisc ? `<th class="py-2 px-3 border border-[#660665] text-right">Disc %</th>` : ''}
+                    <th class="py-2 px-3 border border-[#660665] text-right">Taxable</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${(inv.items || [])
+                    .map((it, idx) => {
+                      const gross = (Number(it.qty) || 0) * (Number(it.rate) || 0);
+                      const net = gross - (gross * (Number(it.discount) || 0)) / 100;
+                      return `
+                        <tr>
+                          <td class="py-2 px-3 border border-[#E5E7EB]">${idx + 1}</td>
+                          <td class="py-2 px-3 border border-[#E5E7EB] font-semibold">${escapeHtml(it.description)}</td>
+                          ${customCols.map((col) => `<td class="py-2 px-3 border border-[#E5E7EB]">${escapeHtml(it.customFields?.[col.id] || '-')}</td>`).join('')}
+                          ${showHsn ? `<td class="py-2 px-3 border border-[#E5E7EB] font-mono">${escapeHtml(it.hsn || '999293')}</td>` : ''}
+                          <td class="py-2 px-3 border border-[#E5E7EB] text-right">${Number(it.qty) || 0}</td>
+                          <td class="py-2 px-3 border border-[#E5E7EB] text-right">${formatINR(it.rate)}</td>
+                          ${showDisc ? `<td class="py-2 px-3 border border-[#E5E7EB] text-right">${Number(it.discount) || 0}%</td>` : ''}
+                          <td class="py-2 px-3 border border-[#E5E7EB] text-right font-bold">${formatINR(net)}</td>
+                        </tr>
+                      `;
+                    })
+                    .join('')}
+                </tbody>
+              </table>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2 text-xs">
+                <div class="space-y-2">
+                  <div class="p-3.5 rounded-xl bg-[#F9F9FB] border border-[#E5E7EB]">
+                    <p class="font-extrabold text-[#660665] uppercase text-[10px] tracking-wider mb-1">Bank &amp; UPI Details</p>
+                    <p><strong>Bank:</strong> ${escapeHtml(c.bankName)}</p>
+                    <p><strong>A/C No:</strong> ${escapeHtml(c.accountNo)} • <strong>IFSC:</strong> ${escapeHtml(c.ifsc)}</p>
+                    <p><strong>UPI ID:</strong> <span class="font-mono font-bold text-[#660665]">${escapeHtml(c.upiId)}</span></p>
+                  </div>
+                  ${inv.notes ? `<p class="text-[#5A6275] italic">Note: ${escapeHtml(inv.notes)}</p>` : ''}
+                </div>
+
+                <div class="space-y-1.5">
+                  <div class="flex justify-between py-1">
+                    <span class="text-[#5A6275]">Gross Subtotal:</span>
+                    <span class="font-semibold">${formatINR(t.grossSubtotal)}</span>
+                  </div>
+                  ${
+                    t.totalDiscount > 0
+                      ? `<div class="flex justify-between py-1 text-emerald-700"><span>Discount:</span><span>- ${formatINR(t.totalDiscount)}</span></div>`
+                      : ''
+                  }
+                  <div class="flex justify-between py-1 border-t border-[#E5E7EB]">
+                    <span class="font-bold">Taxable Value:</span>
+                    <span class="font-bold">${formatINR(t.taxableAmount)}</span>
+                  </div>
+                  ${
+                    inv.taxMode === 'INTRA'
+                      ? `<div class="flex justify-between py-1 text-[#5A6275]"><span>CGST (${Number(inv.gstRate) / 2}%):</span><span>${formatINR(t.cgst)}</span></div>
+                         <div class="flex justify-between py-1 text-[#5A6275]"><span>SGST (${Number(inv.gstRate) / 2}%):</span><span>${formatINR(t.sgst)}</span></div>`
+                      : `<div class="flex justify-between py-1 text-[#5A6275]"><span>IGST (${Number(inv.gstRate)}%):</span><span>${formatINR(t.igst)}</span></div>`
+                  }
+                  <div class="flex justify-between items-center py-3 px-4 rounded-xl bg-[#660665] text-white font-extrabold text-sm mt-2">
+                    <span>GRAND TOTAL (INR)</span>
+                    <span>${formatINR(t.grandTotal)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pt-6 border-t border-[#E5E7EB] flex justify-between items-end text-xs">
+                <div class="text-[#5A6275]">Computer-generated GST Tax Invoice.</div>
+                <div class="text-right">
+                  <p class="font-extrabold text-[#660665]">For ${escapeHtml(c.name)}</p>
+                  <div class="h-9"></div>
+                  <p class="text-[#5A6275] border-t border-slate-300 pt-1">Authorized Signatory</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCustomerModal() {
+      const existing = ui.editingCustomerId
+        ? (appState.customers || []).find((c) => c.id === ui.editingCustomerId)
+        : null;
+      const c = existing || {
+        contactName: '',
+        companyName: '',
+        whatsapp: '',
+        email: '',
+        gstin: '',
+        taxMode: 'INTRA',
+        address: '',
+        customFields: {}
+      };
+      const extraCols = appState.customColumns?.customers || [];
+
+      return `
+        <div class="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4 no-print">
+          <form id="customer-form" class="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+            <div class="bg-[#660665] text-white px-6 py-4 flex justify-between items-center">
+              <h3 class="font-extrabold text-base">${existing ? 'Edit Customer' : 'Add Customer'}</h3>
+              <button type="button" data-close-modal="customer" class="close-modal-btn text-xs font-bold px-2.5 py-1 rounded bg-white/15 cursor-pointer">Close</button>
+            </div>
+            <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label class="block font-bold mb-1">Contact Name *</label>
+                <input name="contactName" type="text" required value="${escapeHtml(c.contactName)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Company / Institute *</label>
+                <input name="companyName" type="text" required value="${escapeHtml(c.companyName)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">WhatsApp Number *</label>
+                <input name="whatsapp" type="text" required value="${escapeHtml(c.whatsapp)}" placeholder="919848012345" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-mono" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Email</label>
+                <input name="email" type="email" value="${escapeHtml(c.email)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Customer GSTIN</label>
+                <input name="gstin" type="text" value="${escapeHtml(c.gstin)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-mono" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Default GST Type</label>
+                <select name="taxMode" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-semibold">
+                  <option value="INTRA" ${c.taxMode === 'INTRA' ? 'selected' : ''}>Intra-State (CGST + SGST)</option>
+                  <option value="INTER" ${c.taxMode === 'INTER' ? 'selected' : ''}>Inter-State (IGST)</option>
+                </select>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block font-bold mb-1">Billing Address</label>
+                <input name="address" type="text" value="${escapeHtml(c.address)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              ${extraCols
+                .map(
+                  (col) => `
+                <div>
+                  <label class="block font-bold text-[#660665] mb-1">${escapeHtml(col.label)}</label>
+                  <input name="custom_${escapeHtml(col.id)}" type="${col.type === 'number' ? 'number' : 'text'}" value="${escapeHtml(c.customFields?.[col.id] || '')}" class="w-full px-3 py-2 rounded-xl border border-[#660665]/30 bg-[#F9F9FB]" />
+                </div>
+              `
+                )
+                .join('')}
+            </div>
+            <div class="px-6 py-4 bg-[#F9F9FB] border-t border-[#E5E7EB] flex justify-end gap-2">
+              <button type="button" data-close-modal="customer" class="close-modal-btn px-4 py-2 rounded-xl border border-[#E5E7EB] bg-white text-xs font-bold cursor-pointer">Cancel</button>
+              <button type="submit" class="px-5 py-2 rounded-xl bg-[#660665] text-white text-xs font-bold cursor-pointer">Save Customer</button>
+            </div>
+          </form>
+        </div>
+      `;
+    }
+
+    function renderVendorModal() {
+      const existing = ui.editingVendorId
+        ? (appState.vendors || []).find((v) => v.id === ui.editingVendorId)
+        : null;
+      const v = existing || {
+        companyName: '',
+        contactName: '',
+        category: 'Cloud & LMS Hosting',
+        phone: '',
+        email: '',
+        gstin: '',
+        address: '',
+        customFields: {}
+      };
+      const extraCols = appState.customColumns?.vendors || [];
+
+      return `
+        <div class="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4 no-print">
+          <form id="vendor-form" class="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+            <div class="bg-[#660665] text-white px-6 py-4 flex justify-between items-center">
+              <h3 class="font-extrabold text-base">${existing ? 'Edit Vendor' : 'Add Vendor'}</h3>
+              <button type="button" data-close-modal="vendor" class="close-modal-btn text-xs font-bold px-2.5 py-1 rounded bg-white/15 cursor-pointer">Close</button>
+            </div>
+            <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label class="block font-bold mb-1">Vendor Company *</label>
+                <input name="companyName" type="text" required value="${escapeHtml(v.companyName)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Contact Person *</label>
+                <input name="contactName" type="text" required value="${escapeHtml(v.contactName)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Category *</label>
+                <input name="category" type="text" required value="${escapeHtml(v.category)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Phone</label>
+                <input name="phone" type="text" value="${escapeHtml(v.phone)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-mono" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Email</label>
+                <input name="email" type="email" value="${escapeHtml(v.email)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">GSTIN</label>
+                <input name="gstin" type="text" value="${escapeHtml(v.gstin)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-mono" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block font-bold mb-1">Address</label>
+                <input name="address" type="text" value="${escapeHtml(v.address)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              ${extraCols
+                .map(
+                  (col) => `
+                <div>
+                  <label class="block font-bold text-[#660665] mb-1">${escapeHtml(col.label)}</label>
+                  <input name="custom_${escapeHtml(col.id)}" type="${col.type === 'number' ? 'number' : 'text'}" value="${escapeHtml(v.customFields?.[col.id] || '')}" class="w-full px-3 py-2 rounded-xl border border-[#660665]/30 bg-[#F9F9FB]" />
+                </div>
+              `
+                )
+                .join('')}
+            </div>
+            <div class="px-6 py-4 bg-[#F9F9FB] border-t border-[#E5E7EB] flex justify-end gap-2">
+              <button type="button" data-close-modal="vendor" class="close-modal-btn px-4 py-2 rounded-xl border border-[#E5E7EB] bg-white text-xs font-bold cursor-pointer">Cancel</button>
+              <button type="submit" class="px-5 py-2 rounded-xl bg-[#660665] text-white text-xs font-bold cursor-pointer">Save Vendor</button>
+            </div>
+          </form>
+        </div>
+      `;
+    }
+
+    function renderExpenseModal() {
+      const existing = ui.editingExpenseId
+        ? (appState.expenses || []).find((e) => e.id === ui.editingExpenseId)
+        : null;
+      const e = existing || {
+        vendor: appState.vendors?.[0]?.companyName || '',
+        category: 'Software & LMS Servers',
+        date: new Date().toISOString().split('T')[0],
+        amount: '',
+        gstInput: '',
+        status: 'Paid',
+        notes: ''
+      };
+
+      return `
+        <div class="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4 no-print">
+          <form id="expense-form" class="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+            <div class="bg-[#660665] text-white px-6 py-4 flex justify-between items-center">
+              <h3 class="font-extrabold text-base">${existing ? 'Edit Expense' : 'Record Expense'}</h3>
+              <button type="button" data-close-modal="expense" class="close-modal-btn text-xs font-bold px-2.5 py-1 rounded bg-white/15 cursor-pointer">Close</button>
+            </div>
+            <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label class="block font-bold mb-1">Vendor / Payee *</label>
+                <input name="vendor" type="text" required value="${escapeHtml(e.vendor)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Category *</label>
+                <input name="category" type="text" required value="${escapeHtml(e.category)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Date *</label>
+                <input name="date" type="date" required value="${escapeHtml(e.date)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Amount (₹) *</label>
+                <input name="amount" type="number" min="0" step="0.01" required value="${escapeHtml(e.amount)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">GST Input Credit (₹)</label>
+                <input name="gstInput" type="number" min="0" step="0.01" value="${escapeHtml(e.gstInput ?? 0)}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+              <div>
+                <label class="block font-bold mb-1">Status</label>
+                <select name="status" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB] font-semibold">
+                  <option value="Paid" ${e.status === 'Paid' ? 'selected' : ''}>Paid</option>
+                  <option value="Pending" ${e.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                </select>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block font-bold mb-1">Notes</label>
+                <input name="notes" type="text" value="${escapeHtml(e.notes || '')}" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F9F9FB]" />
+              </div>
+            </div>
+            <div class="px-6 py-4 bg-[#F9F9FB] border-t border-[#E5E7EB] flex justify-end gap-2">
+              <button type="button" data-close-modal="expense" class="close-modal-btn px-4 py-2 rounded-xl border border-[#E5E7EB] bg-white text-xs font-bold cursor-pointer">Cancel</button>
+              <button type="submit" class="px-5 py-2 rounded-xl bg-[#660665] text-white text-xs font-bold cursor-pointer">Save Expense</button>
+            </div>
+          </form>
+        </div>
+      `;
+    }
+
+    function renderDeployGuideModal() {
+      return `
+        <div class="fixed inset-0 z-50 bg-slate-900/65 flex items-center justify-center p-4 no-print">
+          <div class="bg-white border border-[#E5E7EB] rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
+            <div class="bg-[#660665] text-white px-6 py-4 flex justify-between items-center">
+              <h3 class="font-extrabold text-base">Quick Vercel Deployment Checklist</h3>
+              <button type="button" data-close-modal="guide" class="close-modal-btn px-3 py-1 rounded bg-white/15 text-xs font-bold cursor-pointer">Close</button>
+            </div>
+            <div class="p-6 space-y-3 text-xs text-[#5A6275]">
+              <p><strong class="text-[#1E2538]">1. Single File Ready:</strong> Save this file as <code class="font-mono font-bold text-[#660665]">index.html</code> and add <code class="font-mono font-bold text-[#660665]">vercel.json</code> from the Vercel &amp; Cloud Guide tab.</p>
+              <p><strong class="text-[#1E2538]">2. Deploy to Vercel:</strong> Run <code class="font-mono font-bold text-[#1E2538]">npx vercel --prod</code> or import your Git repo in Vercel with Framework Preset set to <strong>Other</strong>.</p>
+              <p><strong class="text-[#1E2538]">3. Security Hygiene:</strong> Change default Admin/Employee PINs in Settings, export periodic JSON backups, and use HTTPS webhooks if syncing externally.</p>
+            </div>
+            <div class="px-6 py-4 bg-[#F9F9FB] border-t border-[#E5E7EB] flex justify-end">
+              <button type="button" data-close-modal="guide" class="close-modal-btn px-5 py-2 rounded-xl bg-[#660665] text-white text-xs font-bold cursor-pointer">Got It</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ========================================================================
+    // 7. MASTER RENDER & EVENT BINDING
+    // ========================================================================
+    function render() {
+      const root = document.getElementById('app');
+      if (!root) return;
+
+      if (!session) {
+        root.innerHTML = renderLoginScreen();
+        bindLoginEvents();
+        return;
+      }
+
+      let tabHtml = '';
+      switch (ui.activeTab) {
+        case 'invoices':
+          tabHtml = renderInvoicesTab();
+          break;
+        case 'customers':
+          tabHtml = renderCustomersTab();
+          break;
+        case 'vendors':
+          tabHtml = renderVendorsTab();
+          break;
+        case 'expenses':
+          tabHtml = renderExpensesTab();
+          break;
+        case 'vercel':
+          tabHtml = renderVercelTab();
+          break;
+        case 'settings':
+          tabHtml = renderSettingsTab();
+          break;
+        case 'audit':
+          tabHtml = renderAuditTab();
+          break;
+        case 'dashboard':
+        default:
+          tabHtml = renderDashboardTab();
+          break;
+      }
+
+      const modalsHtml = `
+        ${ui.logoEditorModalOpen ? renderLogoEditorModal() : ''}
+        ${ui.invoiceModalOpen ? renderInvoiceEditorModal() : ''}
+        ${ui.previewInvoiceId ? renderInvoicePreviewModal() : ''}
+        ${ui.customerModalOpen ? renderCustomerModal() : ''}
+        ${ui.vendorModalOpen ? renderVendorModal() : ''}
+        ${ui.expenseModalOpen ? renderExpenseModal() : ''}
+        ${ui.deployGuideModalOpen ? renderDeployGuideModal() : ''}
+      `;
+
+      root.innerHTML = `
+        <div id="toast-container"></div>
+        <div class="min-h-screen bg-[#F9F9FB] text-[#1E2538] flex flex-col lg:flex-row">
+          <header class="lg:hidden bg-white border-b border-[#E5E7EB] px-4 py-3 flex items-center justify-between sticky top-0 z-30 no-print">
+            ${renderAurenzaLogoSVG('w-40', true)}
+            <button type="button" id="mobile-menu-toggle" class="px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-xs font-bold cursor-pointer">
+              ${ui.mobileMenuOpen ? 'Close' : 'Menu'}
+            </button>
+          </header>
+
+          ${renderSidebar()}
+
+          <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full no-print">
+            ${renderTopBar()}
+            ${tabHtml}
+          </main>
+        </div>
+        ${modalsHtml}
+      `;
+
+      bindWorkspaceEvents();
+      renderToastOnly();
+    }
+
+    function bindLoginEvents() {
+      const adminTab = document.getElementById('role-tab-admin');
+      const empTab = document.getElementById('role-tab-employee');
+      const guideBtn = document.getElementById('login-open-guide');
+      const form = document.getElementById('login-form');
+
+      if (adminTab) {
+        adminTab.addEventListener('click', () => {
+          ui.authRoleTab = 'admin';
+          ui.authError = '';
+          render();
+        });
+      }
+      if (empTab) {
+        empTab.addEventListener('click', () => {
+          ui.authRoleTab = 'employee';
+          ui.authError = '';
+          render();
+        });
+      }
+      if (guideBtn) {
+        guideBtn.addEventListener('click', () => {
+          session = { name: 'Preview Guest', role: 'employee' };
+          ui.activeTab = 'vercel';
+          render();
+        });
+      }
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const nameVal = (document.getElementById('login-name')?.value || '').trim();
+          const pinVal = (document.getElementById('login-pin')?.value || '').trim();
+          const expectedAdmin = appState.company?.adminCodeHint || 'ADMIN2026';
+          const expectedEmp = appState.company?.employeeCodeHint || 'STAFF2026';
+
+          if (ui.authRoleTab === 'admin') {
+            if (pinVal !== expectedAdmin) {
+              ui.authError = 'Invalid Admin PIN.';
+              render();
+              return;
+            }
+            session = { name: nameVal || 'Admin', role: 'admin' };
+          } else {
+            if (pinVal !== expectedEmp && pinVal !== expectedAdmin) {
+              ui.authError = 'Invalid Employee PIN.';
+              render();
+              return;
+            }
+            session = { name: nameVal || 'Employee', role: 'employee' };
+          }
+          saveSession(session);
+          ui.authError = '';
+          commitState('LOGIN_SUCCESS', `Signed in as ${session.name} (${session.role}).`);
+          showToast(`Signed in as ${session.role.toUpperCase()}`);
+          render();
+        });
+      }
+    }
+
+    function syncDraftFromDOM() {
+      if (!ui.draftInvoice) return;
+      const fields = [
+        ['inv-number', 'invoiceNumber', 'str'],
+        ['inv-date', 'date', 'str'],
+        ['inv-due', 'dueDate', 'str'],
+        ['inv-cust-name', 'customerName', 'str'],
+        ['inv-cust-company', 'customerCompany', 'str'],
+        ['inv-cust-phone', 'customerPhone', 'str'],
+        ['inv-cust-gstin', 'customerGstin', 'str'],
+        ['inv-cust-address', 'customerAddress', 'str'],
+        ['inv-tax-mode', 'taxMode', 'str'],
+        ['inv-gst-rate', 'gstRate', 'num'],
+        ['inv-status', 'status', 'str'],
+        ['inv-pay-mode', 'paymentMode', 'str'],
+        ['inv-notes', 'notes', 'str']
+      ];
+      fields.forEach(([elId, key, kind]) => {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        ui.draftInvoice[key] = kind === 'num' ? Number(el.value) || 0 : el.value.trim();
+      });
+
+      document.querySelectorAll('.item-input').forEach((inp) => {
+        const idx = Number(inp.getAttribute('data-item-idx'));
+        const prop = inp.getAttribute('data-field');
+        if (!ui.draftInvoice.items[idx]) return;
+        if (prop === 'qty' || prop === 'rate' || prop === 'discount') {
+          ui.draftInvoice.items[idx][prop] = Number(inp.value) || 0;
+        } else {
+          ui.draftInvoice.items[idx][prop] = inp.value;
+        }
+      });
+
+      document.querySelectorAll('.item-custom-input').forEach((inp) => {
+        const idx = Number(inp.getAttribute('data-item-idx'));
+        const colId = inp.getAttribute('data-custom-col-id');
+        if (!ui.draftInvoice.items[idx]) return;
+        ui.draftInvoice.items[idx].customFields = {
+          ...(ui.draftInvoice.items[idx].customFields || {}),
+          [colId]: inp.value
+        };
+      });
+    }
+
+    function bindWorkspaceEvents() {
+      // Modal close buttons
+      document.querySelectorAll('.close-modal-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const kind = btn.getAttribute('data-close-modal');
+          if (kind === 'logo') ui.logoEditorModalOpen = false;
+          if (kind === 'invoice') {
+            ui.invoiceModalOpen = false;
+            ui.editingInvoiceId = null;
+            ui.draftInvoice = null;
+          }
+          if (kind === 'preview') ui.previewInvoiceId = null;
+          if (kind === 'customer') {
+            ui.customerModalOpen = false;
+            ui.editingCustomerId = null;
+          }
+          if (kind === 'vendor') {
+            ui.vendorModalOpen = false;
+            ui.editingVendorId = null;
+          }
+          if (kind === 'expense') {
+            ui.expenseModalOpen = false;
+            ui.editingExpenseId = null;
+          }
+          if (kind === 'guide') ui.deployGuideModalOpen = false;
+          render();
+        });
+      });
+
+      // Mobile menu & nav
+      const mobileBtn = document.getElementById('mobile-menu-toggle');
+      if (mobileBtn) {
+        mobileBtn.addEventListener('click', () => {
+          ui.mobileMenuOpen = !ui.mobileMenuOpen;
+          render();
+        });
+      }
+
+      document.querySelectorAll('.nav-item-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          ui.activeTab = btn.getAttribute('data-nav');
+          ui.mobileMenuOpen = false;
+          render();
+        });
+      });
+
+      // Logout & JSON export
+      const logoutBtn = document.getElementById('sidebar-logout');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+          commitState('LOGOUT', `Signed out ${session.name}.`);
+          session = null;
+          saveSession(null);
+          render();
+        });
+      }
+
+      const exportJsonFn = () => {
+        downloadFile(
+          `aurenza-backup-${new Date().toISOString().split('T')[0]}.json`,
+          JSON.stringify(appState, null, 2),
+          'application/json'
+        );
+        showToast('Exported JSON backup.');
+      };
+      const topExportJson = document.getElementById('topbar-export-json');
+      if (topExportJson) topExportJson.addEventListener('click', exportJsonFn);
+
+      // Open Logo Editor
+      ['sidebar-edit-logo', 'topbar-edit-logo', 'settings-open-logo-editor'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('click', () => {
+            ui.logoEditorModalOpen = true;
+            ui.mobileMenuOpen = false;
+            render();
+          });
+        }
+      });
+
+      // Open New Invoice
+      const openNewInvoice = () => {
+        ui.editingInvoiceId = null;
+        ui.draftInvoice = createBlankDraftInvoice();
+        ui.invoiceModalOpen = true;
+        ui.mobileMenuOpen = false;
+        render();
+      };
+      ['sidebar-new-invoice', 'topbar-new-invoice'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', openNewInvoice);
+      });
+
+      // Dashboard & Invoices Table Actions
+      const dashGoInv = document.getElementById('dash-go-invoices');
+      if (dashGoInv) {
+        dashGoInv.addEventListener('click', () => {
+          ui.activeTab = 'invoices';
+          render();
+        });
+      }
+
+      const invSearch = document.getElementById('invoice-search-input');
+      if (invSearch) {
+        invSearch.addEventListener('input', (e) => {
+          ui.invoiceSearch = e.target.value;
+          render();
+        });
+      }
+
+      document.querySelectorAll('.inv-filter-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          ui.invoiceStatusFilter = btn.getAttribute('data-inv-filter');
+          render();
+        });
+      });
+
+      document.querySelectorAll('.preview-inv-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          ui.previewInvoiceId = btn.getAttribute('data-preview-inv');
+          render();
+        });
+      });
+
+      document.querySelectorAll('.edit-inv-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-edit-inv');
+          const found = (appState.invoices || []).find((i) => i.id === id);
+          if (!found) return;
+          ui.editingInvoiceId = id;
+          ui.draftInvoice = JSON.parse(JSON.stringify(found));
+          ui.invoiceModalOpen = true;
+          render();
+        });
+      });
+
+      document.querySelectorAll('.del-inv-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-del-inv');
+          const target = (appState.invoices || []).find((i) => i.id === id);
+          appState.invoices = (appState.invoices || []).filter((i) => i.id !== id);
+          commitState('DELETED_INVOICE', `Deleted invoice ${target?.invoiceNumber || id}.`);
+          showToast('Invoice deleted.');
+          render();
+        });
+      });
+
+      document.querySelectorAll('.cycle-status-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-cycle-status');
+          const order = ['Pending', 'Partial', 'Paid', 'Overdue'];
+          appState.invoices = (appState.invoices || []).map((inv) => {
+            if (inv.id !== id) return inv;
+            const next = order[(order.indexOf(inv.status) + 1) % order.length];
+            commitState('CHANGED_INVOICE_STATUS', `${inv.invoiceNumber} -> ${next}`);
+            return { ...inv, status: next };
+          });
+          showToast('Updated invoice status.');
+          render();
+        });
+      });
+
+      document.querySelectorAll('.wa-inv-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-wa-inv');
+          const inv = (appState.invoices || []).find((i) => i.id === id);
+          if (!inv) return;
+          window.open(buildWhatsAppShareUrl(inv), '_blank', 'noopener,noreferrer');
+          commitState('SHARED_WHATSAPP', `Opened WhatsApp share for ${inv.invoiceNumber}.`);
+          showToast('Opened WhatsApp summary.');
+        });
+      });
+
+      // Invoice Editor Form Events
+      const invForm = document.getElementById('invoice-editor-form');
+      if (invForm) {
+        const picker = document.getElementById('inv-customer-picker');
+        if (picker) {
+          picker.addEventListener('change', (e) => {
+            syncDraftFromDOM();
+            const cust = (appState.customers || []).find((c) => c.id === e.target.value);
+            if (!cust) return;
+            ui.draftInvoice.customerName = cust.contactName;
+            ui.draftInvoice.customerCompany = cust.companyName;
+            ui.draftInvoice.customerPhone = cust.whatsapp;
+            ui.draftInvoice.customerEmail = cust.email;
+            ui.draftInvoice.customerGstin = cust.gstin;
+            ui.draftInvoice.customerAddress = cust.address;
+            ui.draftInvoice.taxMode = cust.taxMode || 'INTRA';
+            render();
+          });
+        }
+
+        const addItemBtn = document.getElementById('add-line-item-btn');
+        if (addItemBtn) {
+          addItemBtn.addEventListener('click', () => {
+            syncDraftFromDOM();
+            const customFields = {};
+            (appState.customColumns?.invoiceItems || []).forEach((c) => {
+              customFields[c.id] = '';
+            });
+            ui.draftInvoice.items.push({
+              description: '',
+              hsn: '999293',
+              qty: 1,
+              rate: 0,
+              discount: 0,
+              customFields
+            });
+            render();
+          });
+        }
+
+        document.querySelectorAll('.remove-item-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            syncDraftFromDOM();
+            const idx = Number(btn.getAttribute('data-remove-item'));
+            if (ui.draftInvoice.items.length > 1) {
+              ui.draftInvoice.items.splice(idx, 1);
+              render();
+            }
+          });
+        });
+
+        ['inv-tax-mode', 'inv-gst-rate', 'inv-status'].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.addEventListener('change', () => {
+              syncDraftFromDOM();
+              render();
+            });
+          }
+        });
+
+        document.querySelectorAll('.item-input').forEach((inp) => {
+          inp.addEventListener('input', () => {
+            syncDraftFromDOM();
+          });
+        });
+
+        const hsnToggle = document.getElementById('toggle-hsn-col');
+        if (hsnToggle) {
+          hsnToggle.addEventListener('change', (e) => {
+            syncDraftFromDOM();
+            appState.showHsnCol = e.target.checked;
+            commitState('TOGGLED_HSN_COL', `Set HSN/SAC visibility to ${e.target.checked}.`);
+            render();
+          });
+        }
+
+        const discToggle = document.getElementById('toggle-disc-col');
+        if (discToggle) {
+          discToggle.addEventListener('change', (e) => {
+            syncDraftFromDOM();
+            appState.showDiscountCol = e.target.checked;
+            commitState('TOGGLED_DISC_COL', `Set Discount % visibility to ${e.target.checked}.`);
+            render();
+          });
+        }
+
+        const inlineAddCol = document.getElementById('inline-add-custom-col-btn');
+        if (inlineAddCol) {
+          inlineAddCol.addEventListener('click', () => {
+            syncDraftFromDOM();
+            const count = (appState.customColumns.invoiceItems?.length || 0) + 1;
+            const newCol = {
+              id: 'col-inv-' + Date.now(),
+              label: `Custom Column ${count}`,
+              type: 'text',
+              showInPrint: true
+            };
+            appState.customColumns.invoiceItems.push(newCol);
+            commitState('ADDED_INVOICE_COLUMN', `Added "${newCol.label}".`);
+            showToast(`Added "${newCol.label}"`);
+            render();
+          });
+        }
+
+        invForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          syncDraftFromDOM();
+          const payload = { ...ui.draftInvoice, createdBy: session.name };
+          if (ui.editingInvoiceId) {
+            payload.id = ui.editingInvoiceId;
+            appState.invoices = (appState.invoices || []).map((i) =>
+              i.id === ui.editingInvoiceId ? payload : i
+            );
+            commitState('UPDATED_INVOICE', `Updated invoice ${payload.invoiceNumber}.`);
+            showToast(`Updated ${payload.invoiceNumber}`);
+          } else {
+            payload.id = 'inv-' + Date.now();
+            appState.invoices = [payload, ...(appState.invoices || [])];
+            commitState('CREATED_INVOICE', `Created invoice ${payload.invoiceNumber}.`);
+            showToast(`Saved ${payload.invoiceNumber}`);
+          }
+          ui.invoiceModalOpen = false;
+          ui.editingInvoiceId = null;
+          ui.draftInvoice = null;
+          render();
+        });
+      }
+
+      // Preview Modal Buttons
+      const modalPrint = document.getElementById('modal-print-pdf');
+      if (modalPrint) {
+        modalPrint.addEventListener('click', () => {
+          window.print();
+        });
+      }
+      const modalWa = document.getElementById('modal-wa-share');
+      if (modalWa) {
+        modalWa.addEventListener('click', () => {
+          const inv = (appState.invoices || []).find((i) => i.id === ui.previewInvoiceId);
+          if (inv) {
+            window.open(buildWhatsAppShareUrl(inv), '_blank', 'noopener,noreferrer');
+          }
+        });
+      }
+
+      // Logo Editor Modal Events
+      const logoForm = document.getElementById('logo-editor-form');
+      if (logoForm) {
+        document.querySelectorAll('.logo-mode-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            appState.branding.mode = btn.getAttribute('data-logo-mode');
+            render();
+          });
+        });
+
+        const fileInp = document.getElementById('logo-file-upload');
+        if (fileInp) {
+          fileInp.addEventListener('change', (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+              appState.branding.customImageUrl = String(reader.result || '');
+              appState.branding.mode = 'image';
+              render();
+            };
+            reader.readAsDataURL(f);
+          });
+        }
+
+        const rangeInp = document.getElementById('logo-scale-range');
+        if (rangeInp) {
+          rangeInp.addEventListener('input', (e) => {
+            appState.branding.scale = Number(e.target.value) || 100;
+            const lbl = document.getElementById('logo-scale-val');
+            if (lbl) lbl.textContent = `${appState.branding.scale}%`;
+          });
+        }
+
+        const resetLogoBtn = document.getElementById('reset-default-logo-btn');
+        if (resetLogoBtn) {
+          resetLogoBtn.addEventListener('click', () => {
+            appState.branding = { ...getSeedState().branding };
+            commitState('RESET_LOGO', 'Reset logo to exact default Aurenza Academy wordmark.');
+            showToast('Reset to default Aurenza logo.');
+            render();
+          });
+        }
+
+        logoForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          appState.branding = {
+            ...appState.branding,
+            primaryColor: document.getElementById('logo-primary-color')?.value || appState.branding.primaryColor,
+            accentColor: document.getElementById('logo-accent-color')?.value || appState.branding.accentColor,
+            subtitleColor: document.getElementById('logo-sub-color')?.value || appState.branding.subtitleColor,
+            logoBgColor: document.getElementById('logo-bg-color')?.value || appState.branding.logoBgColor,
+            scale: Number(document.getElementById('logo-scale-range')?.value) || 100,
+            showSubtitle: document.getElementById('logo-show-sub')?.checked !== false,
+            showFlankingLines: document.getElementById('logo-show-lines')?.checked !== false,
+            ...(document.getElementById('logo-image-url')
+              ? { customImageUrl: document.getElementById('logo-image-url').value.trim() }
+              : {}),
+            ...(document.getElementById('logo-text-title')
+              ? { customTextTitle: document.getElementById('logo-text-title').value.trim() || 'AURENZA' }
+              : {}),
+            ...(document.getElementById('logo-sub-left')
+              ? { customSubtitlePrefix: document.getElementById('logo-sub-left').value.trim() || 'ACADEMY' }
+              : {}),
+            ...(document.getElementById('logo-sub-right')
+              ? { customSubtitleSuffix: document.getElementById('logo-sub-right').value.trim() || 'PRIVATE LIMITED' }
+              : {})
+          };
+          ui.logoEditorModalOpen = false;
+          commitState('UPDATED_BRANDING', `Updated logo (${appState.branding.mode}) and colors.`);
+          showToast('Saved logo & brand settings.');
+          render();
+        });
+      }
+
+      // Customers Tab & Modal
+      const custSearch = document.getElementById('customer-search-input');
+      if (custSearch) {
+        custSearch.addEventListener('input', (e) => {
+          ui.customerSearch = e.target.value;
+          render();
+        });
+      }
+      const openAddCust = document.getElementById('open-add-customer');
+      if (openAddCust) {
+        openAddCust.addEventListener('click', () => {
+          ui.editingCustomerId = null;
+          ui.customerModalOpen = true;
+          render();
+        });
+      }
+      document.querySelectorAll('.edit-cust-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          ui.editingCustomerId = btn.getAttribute('data-edit-cust');
+          ui.customerModalOpen = true;
+          render();
+        });
+      });
+      document.querySelectorAll('.del-cust-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-del-cust');
+          const c = (appState.customers || []).find((x) => x.id === id);
+          appState.customers = (appState.customers || []).filter((x) => x.id !== id);
+          commitState('DELETED_CUSTOMER', `Deleted customer ${c?.companyName || id}.`);
+          showToast('Customer deleted.');
+          render();
+        });
+      });
+      document.querySelectorAll('.bill-cust-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-bill-cust');
+          const cust = (appState.customers || []).find((c) => c.id === id);
+          if (!cust) return;
+          const draft = createBlankDraftInvoice();
+          draft.customerName = cust.contactName;
+          draft.customerCompany = cust.companyName;
+          draft.customerPhone = cust.whatsapp;
+          draft.customerEmail = cust.email;
+          draft.customerGstin = cust.gstin;
+          draft.customerAddress = cust.address;
+          draft.taxMode = cust.taxMode || 'INTRA';
+          ui.editingInvoiceId = null;
+          ui.draftInvoice = draft;
+          ui.invoiceModalOpen = true;
+          render();
+        });
+      });
+
+      const custForm = document.getElementById('customer-form');
+      if (custForm) {
+        custForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const fd = new FormData(custForm);
+          const customFields = {};
+          (appState.customColumns?.customers || []).forEach((col) => {
+            customFields[col.id] = String(fd.get('custom_' + col.id) || '').trim();
+          });
+          const rec = {
+            id: ui.editingCustomerId || 'cust-' + Date.now(),
+            contactName: String(fd.get('contactName') || '').trim(),
+            companyName: String(fd.get('companyName') || '').trim(),
+            whatsapp: String(fd.get('whatsapp') || '').trim(),
+            email: String(fd.get('email') || '').trim(),
+            gstin: String(fd.get('gstin') || '').trim(),
+            taxMode: fd.get('taxMode') || 'INTRA',
+            address: String(fd.get('address') || '').trim(),
+            customFields
+          };
+          if (ui.editingCustomerId) {
+            appState.customers = (appState.customers || []).map((c) =>
+              c.id === ui.editingCustomerId ? rec : c
+            );
+            commitState('UPDATED_CUSTOMER', `Updated customer ${rec.companyName}.`);
+          } else {
+            appState.customers = [rec, ...(appState.customers || [])];
+            commitState('ADDED_CUSTOMER', `Added customer ${rec.companyName}.`);
+          }
+          ui.customerModalOpen = false;
+          ui.editingCustomerId = null;
+          showToast('Customer saved.');
+          render();
+        });
+      }
+
+      // Vendors Tab & Modal
+      const vendSearch = document.getElementById('vendor-search-input');
+      if (vendSearch) {
+        vendSearch.addEventListener('input', (e) => {
+          ui.vendorSearch = e.target.value;
+          render();
+        });
+      }
+      const openAddVend = document.getElementById('open-add-vendor');
+      if (openAddVend) {
+        openAddVend.addEventListener('click', () => {
+          ui.editingVendorId = null;
+          ui.vendorModalOpen = true;
+          render();
+        });
+      }
+      document.querySelectorAll('.edit-vend-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          ui.editingVendorId = btn.getAttribute('data-edit-vend');
+          ui.vendorModalOpen = true;
+          render();
+        });
+      });
+      document.querySelectorAll('.del-vend-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-del-vend');
+          const v = (appState.vendors || []).find((x) => x.id === id);
+          appState.vendors = (appState.vendors || []).filter((x) => x.id !== id);
+          commitState('DELETED_VENDOR', `Deleted vendor ${v?.companyName || id}.`);
+          showToast('Vendor deleted.');
+          render();
+        });
+      });
+
+      const vendForm = document.getElementById('vendor-form');
+      if (vendForm) {
+        vendForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const fd = new FormData(vendForm);
+          const customFields = {};
+          (appState.customColumns?.vendors || []).forEach((col) => {
+            customFields[col.id] = String(fd.get('custom_' + col.id) || '').trim();
+          });
+          const rec = {
+            id: ui.editingVendorId || 'vend-' + Date.now(),
+            companyName: String(fd.get('companyName') || '').trim(),
+            contactName: String(fd.get('contactName') || '').trim(),
+            category: String(fd.get('category') || '').trim(),
+            phone: String(fd.get('phone') || '').trim(),
+            email: String(fd.get('email') || '').trim(),
+            gstin: String(fd.get('gstin') || '').trim(),
+            address: String(fd.get('address') || '').trim(),
+            customFields
+          };
+          if (ui.editingVendorId) {
+            appState.vendors = (appState.vendors || []).map((v) =>
+              v.id === ui.editingVendorId ? rec : v
+            );
+            commitState('UPDATED_VENDOR', `Updated vendor ${rec.companyName}.`);
+          } else {
+            appState.vendors = [rec, ...(appState.vendors || [])];
+            commitState('ADDED_VENDOR', `Added vendor ${rec.companyName}.`);
+          }
+          ui.vendorModalOpen = false;
+          ui.editingVendorId = null;
+          showToast('Vendor saved.');
+          render();
+        });
+      }
+
+      // Expenses Tab & Modal
+      const openAddExp = document.getElementById('open-add-expense');
+      if (openAddExp) {
+        openAddExp.addEventListener('click', () => {
+          ui.editingExpenseId = null;
+          ui.expenseModalOpen = true;
+          render();
+        });
+      }
+      document.querySelectorAll('.edit-exp-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          ui.editingExpenseId = btn.getAttribute('data-edit-exp');
+          ui.expenseModalOpen = true;
+          render();
+        });
+      });
+      document.querySelectorAll('.del-exp-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-del-exp');
+          const ex = (appState.expenses || []).find((x) => x.id === id);
+          appState.expenses = (appState.expenses || []).filter((x) => x.id !== id);
+          commitState('DELETED_EXPENSE', `Deleted expense ${ex?.vendor || id}.`);
+          showToast('Expense deleted.');
+          render();
+        });
+      });
+
+      const expForm = document.getElementById('expense-form');
+      if (expForm) {
+        expForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const fd = new FormData(expForm);
+          const rec = {
+            id: ui.editingExpenseId || 'exp-' + Date.now(),
+            vendor: String(fd.get('vendor') || '').trim(),
+            category: String(fd.get('category') || '').trim(),
+            date: String(fd.get('date') || '').trim(),
+            amount: Number(fd.get('amount')) || 0,
+            gstInput: Number(fd.get('gstInput')) || 0,
+            status: fd.get('status') || 'Paid',
+            notes: String(fd.get('notes') || '').trim()
+          };
+          if (ui.editingExpenseId) {
+            appState.expenses = (appState.expenses || []).map((ex) =>
+              ex.id === ui.editingExpenseId ? rec : ex
+            );
+            commitState('UPDATED_EXPENSE', `Updated expense ${rec.vendor} (${formatINR(rec.amount)}).`);
+          } else {
+            appState.expenses = [rec, ...(appState.expenses || [])];
+            commitState('ADDED_EXPENSE', `Recorded expense ${rec.vendor} (${formatINR(rec.amount)}).`);
+          }
+          ui.expenseModalOpen = false;
+          ui.editingExpenseId = null;
+          showToast('Expense saved.');
+          render();
+        });
+      }
+
+      // Vercel Tab Copy Button
+      const copyVercelBtn = document.getElementById('copy-vercel-json-btn');
+      if (copyVercelBtn) {
+        copyVercelBtn.addEventListener('click', () => {
+          const text = getVercelJsonSnippet();
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).catch(() => {});
+          }
+          showToast('Copied vercel.json configuration.');
+        });
+      }
+
+      // Settings Form & Custom Column Add/Edit/Delete
+      const settingsForm = document.getElementById('company-settings-form');
+      if (settingsForm) {
+        settingsForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const fd = new FormData(settingsForm);
+          appState.company = {
+            ...appState.company,
+            name: String(fd.get('name') || '').trim(),
+            gstin: String(fd.get('gstin') || '').trim(),
+            cin: String(fd.get('cin') || '').trim(),
+            invoicePrefix: String(fd.get('invoicePrefix') || 'AUR-2026-').trim(),
+            email: String(fd.get('email') || '').trim(),
+            phone: String(fd.get('phone') || '').trim(),
+            address: String(fd.get('address') || '').trim(),
+            bankName: String(fd.get('bankName') || '').trim(),
+            accountNo: String(fd.get('accountNo') || '').trim(),
+            ifsc: String(fd.get('ifsc') || '').trim(),
+            upiId: String(fd.get('upiId') || '').trim(),
+            vercelProjectName: String(fd.get('vercelProjectName') || '').trim(),
+            adminCodeHint: String(fd.get('adminCodeHint') || 'ADMIN2026').trim(),
+            employeeCodeHint: String(fd.get('employeeCodeHint') || 'STAFF2026').trim(),
+            syncWebhookUrl: String(fd.get('syncWebhookUrl') || '').trim()
+          };
+          commitState('UPDATED_SETTINGS', 'Updated company settings, PINs, and Vercel config.');
+          showToast('Settings saved.');
+          render();
+        });
+      }
+
+      document.querySelectorAll('.add-custom-col-form').forEach((f) => {
+        f.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const scope = f.getAttribute('data-add-col-scope');
+          const txtInp = f.querySelector('input[type="text"]');
+          const selInp = f.querySelector('select');
+          const label = String(txtInp?.value || '').trim();
+          const type = selInp?.value || 'text';
+          if (!label || !appState.customColumns[scope]) return;
+          appState.customColumns[scope].push({
+            id: `${scope}-col-${Date.now()}`,
+            label,
+            type,
+            showInPrint: true
+          });
+          commitState('ADDED_CUSTOM_COLUMN', `Added column "${label}" to ${scope}.`);
+          showToast(`Added "${label}"`);
+          render();
+        });
+      });
+
+      document.querySelectorAll('.start-edit-col-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          ui.editingColScope = btn.getAttribute('data-start-edit-col-scope');
+          ui.editingColId = btn.getAttribute('data-start-edit-col-id');
+          render();
+        });
+      });
+
+      const cancelEditCol = document.getElementById('cancel-edit-col-btn');
+      if (cancelEditCol) {
+        cancelEditCol.addEventListener('click', () => {
+          ui.editingColScope = null;
+          ui.editingColId = null;
+          render();
+        });
+      }
+
+      document.querySelectorAll('.edit-custom-col-form').forEach((f) => {
+        f.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const scope = f.getAttribute('data-edit-col-scope');
+          const colId = f.getAttribute('data-edit-col-id');
+          const newLabel = String(f.querySelector('input[type="text"]')?.value || '').trim();
+          const newType = f.querySelector('select')?.value || 'text';
+          if (!newLabel || !appState.customColumns[scope]) return;
+          appState.customColumns[scope] = appState.customColumns[scope].map((c) =>
+            c.id === colId ? { ...c, label: newLabel, type: newType } : c
+          );
+          ui.editingColScope = null;
+          ui.editingColId = null;
+          commitState('EDITED_CUSTOM_COLUMN', `Renamed column ${colId} to "${newLabel}".`);
+          showToast('Custom column updated.');
+          render();
+        });
+      });
+
+      document.querySelectorAll('.del-custom-col-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const scope = btn.getAttribute('data-del-col-scope');
+          const colId = btn.getAttribute('data-del-col-id');
+          if (!appState.customColumns[scope]) return;
+          appState.customColumns[scope] = appState.customColumns[scope].filter((c) => c.id !== colId);
+          commitState('DELETED_CUSTOM_COLUMN', `Deleted column ${colId} from ${scope}.`);
+          showToast('Custom column deleted.');
+          render();
+        });
+      });
+
+      // Audit & Backups Events
+      const auditSearch = document.getElementById('audit-search-input');
+      if (auditSearch) {
+        auditSearch.addEventListener('input', (e) => {
+          ui.auditSearch = e.target.value;
+          render();
+        });
+      }
+      const auditExportJson = document.getElementById('audit-export-json');
+      if (auditExportJson) auditExportJson.addEventListener('click', exportJsonFn);
+
+      const auditExportCsv = document.getElementById('audit-export-csv');
+      if (auditExportCsv) {
+        auditExportCsv.addEventListener('click', () => {
+          const rows = [['InvoiceNumber', 'Date', 'DueDate', 'Customer', 'Company', 'GSTIN', 'TaxMode', 'GSTRate', 'GrandTotal', 'Status']];
+          (appState.invoices || []).forEach((inv) => {
+            const t = computeInvoiceTotals(inv.items, inv.taxMode, inv.gstRate);
+            rows.push([
+              inv.invoiceNumber,
+              inv.date,
+              inv.dueDate,
+              inv.customerName,
+              inv.customerCompany,
+              inv.customerGstin,
+              inv.taxMode,
+              inv.gstRate,
+              t.grandTotal.toFixed(2),
+              inv.status
+            ]);
+          });
+          const csv = rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+          downloadFile(`aurenza-invoices-${new Date().toISOString().split('T')[0]}.csv`, csv, 'text/csv;charset=utf-8;');
+          showToast('Exported invoices CSV.');
+        });
+      }
+
+      const auditImportJson = document.getElementById('audit-import-json');
+      if (auditImportJson) {
+        auditImportJson.addEventListener('change', (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const parsed = JSON.parse(String(reader.result || '{}'));
+              appState = { ...getSeedState(), ...parsed };
+              commitState('IMPORTED_JSON', `Restored workspace from ${file.name}.`);
+              showToast('Workspace restored from JSON.');
+              render();
+            } catch (err) {
+              showToast('Invalid JSON backup file.', 'error');
+            }
+          };
+          reader.readAsText(file);
+        });
+      }
+
+      const auditResetDemo = document.getElementById('audit-reset-demo');
+      if (auditResetDemo) {
+        auditResetDemo.addEventListener('click', () => {
+          appState = getSeedState();
+          commitState('RESET_DEMO_DATA', 'Restored default Aurenza demo dataset.');
+          showToast('Restored demo dataset.');
+          render();
+        });
+      }
+    }
+
+    // Boot application
+    render();
+  </script>
+</body>
+</html>
